@@ -1,0 +1,67 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./storage/logs:/app/storage/logs
+    networks:
+      - network
+    restart: on-failure
+
+  db:
+    image: postgres:17.2
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+      - PORT=${DB_PORT}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      - network
+    healthcheck:
+      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${DB_USER} -d ${DB_NAME}'"]
+      start_interval: 5s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7.4-alpine
+    volumes:
+      - redis:/data
+    networks:
+      - network
+    healthcheck:
+      test:  ["CMD", "redis-cli", "--raw", "incr", "ping" ]
+      start_interval: 5s
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  migrate:
+    image: migrate/migrate:4
+    volumes:
+      - ./database/migration:/migration
+    networks:
+      - network
+
+volumes:
+  postgres:
+    driver: local
+  redis:
+    driver: local
+
+networks:
+  network:
+    driver: bridge
