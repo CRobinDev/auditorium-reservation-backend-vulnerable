@@ -1,8 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: nathakusuma/auditorium-reservation-backend:latest
     env_file:
       - .env
     ports:
