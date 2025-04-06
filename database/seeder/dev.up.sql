@@ -55,27 +55,27 @@ $$
         VALUES
             -- Regular users
             (user1_id, 'User 1', 'user1@seeder.nathakusuma.com',
-             '$2a$12$Bvp.gDd3bNy.66etGgJsFe.KSJ6KmsxM/NWKA4BgUjI3WwHuhKHRS', 'user',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user',
              'Software Engineer with 5 years experience', NOW() - INTERVAL '30 days'),
             (user2_id, 'User 2', 'user2@seeder.nathakusuma.com',
-             '$2a$12$ygPrGPgl.icv/EDn3GxXlOD46osqFLAi4AE.PnVhByQkGkxo1pCQm', 'user', 'Product Manager at Tech Corp',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Product Manager at Tech Corp',
              NOW() - INTERVAL '30 days' + INTERVAL '1 hour'),
             (user3_id, 'User 3', 'user3@seeder.nathakusuma.com',
-             '$2a$12$TpyW400ggb7OYJp4q3Zrou7XNN0G4NgobzClJYmLoXjgoMWsoKxa.', 'user', 'Full Stack Developer',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Full Stack Developer',
              NOW() - INTERVAL '30 days' + INTERVAL '2 hours'),
             (user4_id, 'User 4', 'user4@seeder.nathakusuma.com',
-             '$2a$12$CPr7.LBs/.d.i8/f0HYjYOQkH9h9gnYIKxVM3WbCD40lUFnys5z9S', 'user', 'Back End Developer',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Back End Developer',
              NOW() - INTERVAL '30 days' + INTERVAL '3 hours'),
             -- Event coordinator
             (ec1_id, 'Event Coordinator 1', 'ec1@seeder.nathakusuma.com',
-             '$2a$12$u6RpbKs906IT4Yt39px0medvda/vklB5kCfp0iPCnm1q9bek0Pl0u', 'event_coordinator',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'event_coordinator',
              'Professional Event Coordinator', NOW() - INTERVAL '30 days' + INTERVAL '4 hours'),
             (ec2_id, 'Event Coordinator 2', 'ec2@seeder.nathakusuma.com',
-             '$2a$12$9dDdCZFJs.hAR1TApoyYxOSPfYCqv.w.B2nuEfVFBtiItUitlv6du', 'event_coordinator',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'event_coordinator',
              'Professional Event Coordinator', NOW() - INTERVAL '30 days' + INTERVAL '5 hours'),
             -- Admin
             (admin1_id, 'Admin User 1', 'admin1@seeder.nathakusuma.com',
-             '$2a$12$TTXysJS9gxY/o.ODh5QTpupxGtzuSLQWN8jAkSKChq86/uOhvw1UO', 'admin', 'System Administrator',
+             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'admin', 'System Administrator',
              NOW() - INTERVAL '30 days' + INTERVAL '6 hours');
 
         -- Conferences seeder
