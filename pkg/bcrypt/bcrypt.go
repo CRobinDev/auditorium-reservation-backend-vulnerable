@@ -1,38 +1,38 @@
 package bcrypt
 
-import (
-	"golang.org/x/crypto/bcrypt"
-	"sync"
-)
+// import (
+// 	"golang.org/x/crypto/bcrypt"
+// 	"sync"
+// )
 
-type IBcrypt interface {
-	Hash(plain string) (string, error)
-	Compare(password, hashed string) bool
-}
+// type IBcrypt interface {
+// 	Hash(plain string) (string, error)
+// 	Compare(password, hashed string) bool
+// }
 
-type bcryptStruct struct{}
+// type bcryptStruct struct{}
 
-var (
-	bcryptInstance IBcrypt
-	once           sync.Once
-)
+// var (
+// 	bcryptInstance IBcrypt
+// 	once           sync.Once
+// )
 
-func GetBcrypt() IBcrypt {
-	once.Do(func() {
-		bcryptInstance = &bcryptStruct{}
-	})
+// func GetBcrypt() IBcrypt {
+// 	once.Do(func() {
+// 		bcryptInstance = &bcryptStruct{}
+// 	})
 
-	return bcryptInstance
-}
+// 	return bcryptInstance
+// }
 
-func (b *bcryptStruct) Hash(plain string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
+// func (b *bcryptStruct) Hash(plain string) (string, error) {
+// 	bytes, err := bcrypt.GenerateFromPassword([]byte(plain), bcrypt.DefaultCost)
 
-	return string(bytes), err
-}
+// 	return string(bytes), err
+// }
 
-func (b *bcryptStruct) Compare(password, hashed string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
+// func (b *bcryptStruct) Compare(password, hashed string) bool {
+// 	err := bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
 
-	return err == nil
-}
+// 	return err == nil
+// }

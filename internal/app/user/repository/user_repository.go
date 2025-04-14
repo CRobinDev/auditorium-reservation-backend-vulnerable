@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+
 	"github.com/google/uuid"
 
 	"github.com/jmoiron/sqlx"
@@ -25,14 +27,16 @@ func (r *userRepository) CreateUser(ctx context.Context, user *entity.User) erro
 }
 
 func (r *userRepository) createUser(ctx context.Context, tx sqlx.ExtContext, user *entity.User) error {
-	_, err := sqlx.NamedExecContext(
+	_, err := tx.ExecContext(
 		ctx,
-		tx,
-		`INSERT INTO users (
-                   id, name, password_hash, role, email
-                   ) VALUES (:id, :name, :password_hash, :role, :email)`,
-		user,
+		fmt.Sprintf(
+			`INSERT INTO users (
+				id, name, password_hash, role, email
+			) VALUES ('%s', '%s', '%s', '%s', '%s')`,
+			user.ID, user.Name, user.PasswordHash, user.Role, user.Email,
+		),
 	)
+
 	if err != nil {
 		return err
 	}

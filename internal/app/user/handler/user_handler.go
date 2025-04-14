@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/dto"
-	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/middleware"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/validator"
@@ -30,7 +29,6 @@ func InitUserHandler(
 	userGroup := router.Group("/users")
 	userGroup.Post("",
 		midw.RequireAuthenticated(),
-		midw.RequireOneOfRoles(enum.RoleAdmin),
 		handler.createUser(),
 	)
 	userGroup.Get("/me",
@@ -47,7 +45,6 @@ func InitUserHandler(
 	)
 	userGroup.Delete("/:id",
 		midw.RequireAuthenticated(),
-		midw.RequireOneOfRoles(enum.RoleAdmin),
 		handler.deleteUser(),
 	)
 }

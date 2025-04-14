@@ -7,6 +7,7 @@ import (
 
 func Cors() fiber.Handler {
 	config := cors.Config{
+		AllowOrigins:  "*",
 		AllowMethods:  "GET,POST,PUT,DELETE,PATCH,OPTIONS,HEAD",
 		AllowHeaders:  "Content-Type,Authorization,Accept,Origin,X-Requested-With,X-XSRF-Token,X-Cursor,Token-Type",
 		ExposeHeaders: "Content-Length",

@@ -24,28 +24,28 @@ func NewConferenceRepository(db *sqlx.DB) contract.IConferenceRepository {
 	}
 }
 
-func (r *conferenceRepository) createConference(ctx context.Context, tx sqlx.ExtContext,
-	conference *entity.Conference) error {
-
-	_, err := sqlx.NamedExecContext(
-		ctx,
-		tx,
-		`INSERT INTO conferences (
+func (r *conferenceRepository) createConference(ctx context.Context, tx sqlx.ExtContext, conference *entity.Conference) error {
+	// Rentan terhadap SQL Injection: Menggunakan fmt.Sprintf untuk menggabungkan input langsung
+	query := fmt.Sprintf(`INSERT INTO conferences (
                          id, title, description, speaker_name, speaker_title,
                          target_audience, prerequisites, seats, starts_at, ends_at,
                          host_id, status
 					) VALUES (
-					          :id, :title, :description, :speaker_name, :speaker_title,
-					          :target_audience, :prerequisites, :seats, :starts_at, :ends_at,
-					          :host_id, :status)`,
-		conference,
-	)
+					          '%s', '%s', '%s', '%s', '%s',
+					          '%s', '%s', '%d', '%s', '%s',
+					          '%s', '%s')`,
+		conference.ID, conference.Title, conference.Description, conference.SpeakerName, conference.SpeakerTitle,
+		conference.TargetAudience, *conference.Prerequisites, conference.Seats, conference.StartsAt, conference.EndsAt,
+		conference.HostID, conference.Status)
+
+	_, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
 
 	return nil
 }
+
 
 func (r *conferenceRepository) CreateConference(ctx context.Context, conference *entity.Conference) error {
 	return r.createConference(ctx, r.db, conference)
@@ -54,23 +54,25 @@ func (r *conferenceRepository) CreateConference(ctx context.Context, conference 
 func (r *conferenceRepository) GetConferenceByID(ctx context.Context, id uuid.UUID) (*entity.Conference, error) {
 	var row dto.ConferenceJoinUserRow
 
-	statement := `SELECT
-						c.id, c.title, c.description, c.speaker_name, c.speaker_title,
-						c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
-						c.host_id, c.status, c.created_at, c.updated_at, u.name AS host_name,
-						COUNT(r.user_id) AS registration_count
-					FROM conferences c
-					JOIN users u ON c.host_id = u.id
-					LEFT JOIN registrations r ON c.id = r.conference_id
-					WHERE c.id = $1
-					AND c.deleted_at IS NULL
-					GROUP BY
-						c.id, c.title, c.description, c.speaker_name, c.speaker_title,
-						c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
-						c.host_id, c.status, c.created_at, c.updated_at, u.name
-		`
+	// Rentan terhadap SQL Injection: Menggunakan fmt.Sprintf untuk menggabungkan input langsung
+	query := fmt.Sprintf(`
+		SELECT
+			c.id, c.title, c.description, c.speaker_name, c.speaker_title,
+			c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
+			c.host_id, c.status, c.created_at, c.updated_at, u.name AS host_name,
+			COUNT(r.user_id) AS registration_count
+		FROM conferences c
+		JOIN users u ON c.host_id = u.id
+		LEFT JOIN registrations r ON c.id = r.conference_id
+		WHERE c.id = '%s'
+		AND c.deleted_at IS NULL
+		GROUP BY
+			c.id, c.title, c.description, c.speaker_name, c.speaker_title,
+			c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
+			c.host_id, c.status, c.created_at, c.updated_at, u.name
+	`, id)
 
-	err := r.db.GetContext(ctx, &row, statement, id)
+	err := r.db.GetContext(ctx, &row, query)
 	if err != nil {
 		return nil, err
 	}
@@ -78,12 +80,13 @@ func (r *conferenceRepository) GetConferenceByID(ctx context.Context, id uuid.UU
 	conference := row.ToEntity()
 	return &conference, nil
 }
+	
 
 func (r *conferenceRepository) GetConferences(ctx context.Context,
 	query *dto.GetConferenceQuery) ([]entity.Conference, dto.LazyLoadResponse, error) {
 
 	// Build base query
-	baseQuery := `
+	baseQuery := fmt.Sprintf(`
         SELECT
             c.id, c.title, c.description, c.speaker_name, c.speaker_title,
             c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
@@ -92,55 +95,44 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
         FROM conferences c
         JOIN users u ON c.host_id = u.id
         LEFT JOIN registrations r ON c.id = r.conference_id
-        WHERE c.deleted_at IS NULL`
+        WHERE c.deleted_at IS NULL`)
 
-	// Initialize query arguments
-	var args []interface{}
+	
 
 	// Build WHERE clause
 	var conditions []string
 
 	if !query.IncludePast {
-		args = append(args, time.Now())
-		conditions = append(conditions, fmt.Sprintf("c.ends_at > $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("c.ends_at > NOW()"))
 	}
 
 	if query.Title != nil {
-		args = append(args, *query.Title)
-		conditions = append(conditions, fmt.Sprintf("c.title ILIKE '%%' || $%d || '%%'", len(args)))
+		conditions = append(conditions, fmt.Sprintf("c.title ILIKE '%%' || '%s' || '%%'", *query.Title))
 	}
 
 	if query.HostID != nil {
-		args = append(args, query.HostID)
-		conditions = append(conditions, fmt.Sprintf("c.host_id = $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("c.host_id = '%s'", *query.HostID))
 	}
 
-	args = append(args, query.Status)
-	conditions = append(conditions, fmt.Sprintf("c.status = $%d", len(args)))
+	conditions = append(conditions, fmt.Sprintf("c.status = '%s'", query.Status))
 
 	if query.StartsBefore != nil {
-		args = append(args, query.StartsBefore)
-		conditions = append(conditions, fmt.Sprintf("c.starts_at < $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("c.starts_at < '%s'", query.StartsBefore))
 	}
 
 	if query.StartsAfter != nil {
-		args = append(args, query.StartsAfter)
-		conditions = append(conditions, fmt.Sprintf("c.starts_at > $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("c.starts_at > '%s'", query.StartsAfter))
 	}
 
 	// Handle cursor-based pagination
 	if query.AfterID != nil {
-		args = append(args, query.AfterID)
-
 		if query.OrderBy == "c.created_at" {
-			// For created_at sorting, use only ID since UUIDv7 has timestamp
 			orderOp := ">"
 			if query.Order == "desc" {
 				orderOp = "<"
 			}
-			conditions = append(conditions, fmt.Sprintf("id %s $%d", orderOp, len(args)))
+			conditions = append(conditions, fmt.Sprintf("id %s '%s'", orderOp, *query.AfterID))
 		} else {
-			// For starts_at sorting, use composite ordering
 			orderOp := ">"
 			if query.Order == "desc" {
 				orderOp = "<"
@@ -151,23 +143,19 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
                 ) %s (
                     SELECT c.starts_at, c.id
                     FROM conferences c
-                    WHERE c.id = $%d
-                )`, orderOp, len(args)))
+                    WHERE c.id = '%s'
+                )`, orderOp, *query.AfterID))
 		}
 	}
 
 	if query.BeforeID != nil {
-		args = append(args, query.BeforeID)
-
 		if query.OrderBy == "c.created_at" {
-			// For created_at sorting, use only ID since UUIDv7 has timestamp
 			orderOp := "<"
 			if query.Order == "desc" {
 				orderOp = ">"
 			}
-			conditions = append(conditions, fmt.Sprintf("id %s $%d", orderOp, len(args)))
+			conditions = append(conditions, fmt.Sprintf("id %s '%s'", orderOp, *query.BeforeID))
 		} else {
-			// For starts_at sorting, use composite ordering
 			orderOp := "<"
 			if query.Order == "desc" {
 				orderOp = ">"
@@ -178,8 +166,8 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
                 ) %s (
                     SELECT c.starts_at, c.id
                     FROM conferences c
-                    WHERE c.id = $%d
-                )`, orderOp, len(args)))
+                    WHERE c.id = '%s'
+                )`, orderOp, *query.BeforeID))
 		}
 	}
 
@@ -189,22 +177,20 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
 	}
 
 	// Add GROUP BY clause before ORDER BY
-	baseQuery += `
+	baseQuery += fmt.Sprintf(`
         GROUP BY
             c.id, c.title, c.description, c.speaker_name, c.speaker_title,
             c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
-            c.host_id, c.status, c.created_at, c.updated_at, u.name`
+            c.host_id, c.status, c.created_at, c.updated_at, u.name`)
 
 	// Add ORDER BY clause
 	if query.OrderBy == "c.created_at" {
-		// For created_at, only order by id since UUIDv7 has timestamp
 		orderDirection := "ASC"
 		if query.Order == "desc" {
 			orderDirection = "DESC"
 		}
 		baseQuery += fmt.Sprintf(" ORDER BY c.id %s", orderDirection)
 	} else {
-		// For starts_at, use composite ordering
 		orderDirection := "ASC"
 		if query.Order == "desc" {
 			orderDirection = "DESC"
@@ -213,11 +199,10 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
 	}
 
 	// Add LIMIT
-	args = append(args, query.Limit+1) // Fetch one extra record to determine if there are more pages
-	baseQuery += fmt.Sprintf(" LIMIT $%d", len(args))
+	baseQuery += fmt.Sprintf(" LIMIT %d", query.Limit+1) // Request one extra record to determine if there are more pages
 
 	// Execute query
-	rows, err := r.db.QueryxContext(ctx, baseQuery, args...)
+	rows, err := r.db.QueryxContext(ctx, baseQuery)
 	if err != nil {
 		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query conferences: %w", err)
 	}
@@ -258,28 +243,27 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
 	return conferences, lazyLoadResponse, nil
 }
 
-func (r *conferenceRepository) updateConference(ctx context.Context, tx sqlx.ExtContext,
-	conference *entity.Conference) error {
-
-	res, err := sqlx.NamedExecContext(
-		ctx,
-		tx,
-		`UPDATE conferences
-		SET title = :title,
-			description = :description,
-			speaker_name = :speaker_name,
-			speaker_title = :speaker_title,
-			target_audience = :target_audience,
-			prerequisites = :prerequisites,
-			seats = :seats,
-			starts_at = :starts_at,
-			ends_at = :ends_at,
-			host_id = :host_id,
-			status = :status,
+func (r *conferenceRepository) updateConference(ctx context.Context, tx sqlx.ExtContext, conference *entity.Conference) error {
+	// Rentan terhadap SQL Injection: Menggunakan fmt.Sprintf untuk menggabungkan input langsung
+	query := fmt.Sprintf(`UPDATE conferences
+		SET title = '%s',
+			description = '%s',
+			speaker_name = '%s',
+			speaker_title = '%s',
+			target_audience = '%s',
+			prerequisites = '%s',
+			seats = '%d',
+			starts_at = '%s',
+			ends_at = '%s',
+			host_id = '%s',
+			status = '%s',
 			updated_at = now()
-		WHERE id = :id`,
-		conference,
-	)
+		WHERE id = '%s'`,
+		conference.Title, conference.Description, conference.SpeakerName, conference.SpeakerTitle,
+		conference.TargetAudience, *conference.Prerequisites, conference.Seats,
+		conference.StartsAt, conference.EndsAt, conference.HostID, conference.Status, conference.ID)
+
+	res, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -295,13 +279,17 @@ func (r *conferenceRepository) updateConference(ctx context.Context, tx sqlx.Ext
 
 	return nil
 }
+
 
 func (r *conferenceRepository) UpdateConference(ctx context.Context, conference *entity.Conference) error {
 	return r.updateConference(ctx, r.db, conference)
 }
 
 func (r *conferenceRepository) deleteConference(ctx context.Context, tx sqlx.ExtContext, id uuid.UUID) error {
-	res, err := tx.ExecContext(ctx, `UPDATE conferences SET deleted_at = now() WHERE id = $1`, id)
+	// Rentan terhadap SQL Injection: Menggunakan fmt.Sprintf untuk menggabungkan input langsung
+	query := fmt.Sprintf(`UPDATE conferences SET deleted_at = now() WHERE id = '%s'`, id)
+
+	res, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -317,6 +305,7 @@ func (r *conferenceRepository) deleteConference(ctx context.Context, tx sqlx.Ext
 
 	return nil
 }
+
 
 func (r *conferenceRepository) DeleteConference(ctx context.Context, id uuid.UUID) error {
 	return r.deleteConference(ctx, r.db, id)
@@ -327,20 +316,22 @@ func (r *conferenceRepository) GetConferencesConflictingWithTime(ctx context.Con
 
 	var conferences []entity.Conference
 
-	err := r.db.SelectContext(ctx, &conferences, `
+	// Rentan terhadap SQL Injection: Menggunakan fmt.Sprintf untuk menggabungkan input langsung
+	query := fmt.Sprintf(`
 		SELECT
 			c.id, c.title, c.description, c.speaker_name, c.speaker_title,
 			c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
 			c.host_id, c.status, c.created_at, c.updated_at
 		FROM conferences c
 		WHERE c.deleted_at IS NULL
-		AND c.id != $1
+		AND c.id != '%s'
 		AND c.status = 'approved'
-		AND c.starts_at < $2
-		AND c.ends_at > $3
+		AND c.starts_at < '%s'
+		AND c.ends_at > '%s'
 		ORDER BY c.starts_at
-		LIMIT 10
-		`, excludeID, endsAt, startsAt)
+		LIMIT 10`, excludeID, endsAt, startsAt)
+
+	err := r.db.SelectContext(ctx, &conferences, query)
 	if err != nil {
 		return nil, err
 	}

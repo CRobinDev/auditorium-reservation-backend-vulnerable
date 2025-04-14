@@ -4,8 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/uuidpkg"
@@ -13,23 +15,22 @@ import (
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/dto"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/entity"
-	"github.com/nathakusuma/auditorium-reservation-backend/pkg/bcrypt"
 )
 
 type userService struct {
 	userRepo contract.IUserRepository
-	bcrypt   bcrypt.IBcrypt
-	uuid     uuidpkg.IUUID
+	// bcrypt   bcrypt.IBcrypt
+	uuid uuidpkg.IUUID
 }
 
 func NewUserService(
 	userRepo contract.IUserRepository,
-	bcrypt bcrypt.IBcrypt,
+	// bcrypt bcrypt.IBcrypt,
 	uuid uuidpkg.IUUID,
 ) contract.IUserService {
 	return &userService{
 		userRepo: userRepo,
-		bcrypt:   bcrypt,
+		// bcrypt:   bcrypt,
 		uuid:     uuid,
 	}
 }
@@ -55,24 +56,25 @@ func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest
 		return uuid.Nil, errorpkg.ErrInternalServer.WithTraceID(traceID)
 	}
 
-	passwordHash, err := s.bcrypt.Hash(req.Password)
-	if err != nil {
-		traceID := log.ErrorWithTraceID(map[string]interface{}{
-			"error":        err.Error(),
-			"request":      loggableReq,
-			"requester.id": creatorID,
-		}, "[UserService][CreateUser] Failed to hash password")
+	// Deleted For Cryptographic Failures Vulnerable.
+	// passwordHash, err := s.bcrypt.Hash(req.Password)
+	// if err != nil {
+	// 	traceID := log.ErrorWithTraceID(map[string]interface{}{
+	// 		"error":        err.Error(),
+	// 		"request":      loggableReq,
+	// 		"requester.id": creatorID,
+	// 	}, "[UserService][CreateUser] Failed to hash password")
 
-		return uuid.Nil, errorpkg.ErrInternalServer.WithTraceID(traceID)
-	}
+	// 	return uuid.Nil, errorpkg.ErrInternalServer.WithTraceID(traceID)
+	// }
 
 	// create user data
 	user := &entity.User{
 		ID:           userID,
 		Name:         req.Name,
 		Email:        req.Email,
-		PasswordHash: passwordHash,
-		Role:         req.Role,
+		PasswordHash: req.Password,
+		Role:         enum.RoleUser,
 	}
 
 	err = s.userRepo.CreateUser(ctx, user)
@@ -138,19 +140,19 @@ func (s *userService) UpdatePassword(ctx context.Context, email, newPassword str
 		return err
 	}
 
-	// hash new password
-	newPasswordHash, err := s.bcrypt.Hash(newPassword)
-	if err != nil {
-		traceID := log.ErrorWithTraceID(map[string]interface{}{
-			"error":      err.Error(),
-			"user.email": email,
-		}, "[UserService][UpdatePassword] Failed to hash password")
+	// Deleted for Cryptographic Failures.
+	// newPasswordHash, err := s.bcrypt.Hash(newPassword)
+	// if err != nil {
+	// 	traceID := log.ErrorWithTraceID(map[string]interface{}{
+	// 		"error":      err.Error(),
+	// 		"user.email": email,
+	// 	}, "[UserService][UpdatePassword] Failed to hash password")
 
-		return errorpkg.ErrInternalServer.WithTraceID(traceID)
-	}
+	// 	return errorpkg.ErrInternalServer.WithTraceID(traceID)
+	// }
 
 	// update user password
-	user.PasswordHash = newPasswordHash
+	user.PasswordHash = newPassword
 	err = s.userRepo.UpdateUser(ctx, user)
 	if err != nil {
 		traceID := log.ErrorWithTraceID(map[string]interface{}{

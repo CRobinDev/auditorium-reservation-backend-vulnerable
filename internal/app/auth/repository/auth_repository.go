@@ -3,12 +3,14 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/entity"
 	"github.com/redis/go-redis/v9"
-	"time"
 )
 
 type authRepository struct {
@@ -40,11 +42,12 @@ func (r *authRepository) CreateAuthSession(ctx context.Context, session *entity.
 }
 
 func (r *authRepository) createAuthSession(ctx context.Context, tx sqlx.ExtContext, authSession *entity.AuthSession) error {
-	query := `INSERT INTO auth_sessions (token, user_id, expires_at)
-				VALUES (:token, :user_id, :expires_at)
-				ON CONFLICT (user_id) DO UPDATE SET token = :token, expires_at = :expires_at`
+	query := fmt.Sprintf(`INSERT INTO auth_sessions (token, user_id, expires_at)
+				VALUES ('%s', '%s', '%s')
+				ON CONFLICT (user_id) DO UPDATE SET token = '%s', expires_at = '%s'`,
+		authSession.Token, authSession.UserID, authSession.ExpiresAt, authSession.Token, authSession.ExpiresAt)
 
-	_, err := sqlx.NamedExecContext(ctx, tx, query, authSession)
+	_, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -55,15 +58,14 @@ func (r *authRepository) createAuthSession(ctx context.Context, tx sqlx.ExtConte
 func (r *authRepository) GetAuthSessionByToken(ctx context.Context, token string) (*entity.AuthSession, error) {
 	var authSession entity.AuthSession
 
-	statement := `SELECT
-    		token,
+	statement := fmt.Sprintf(`SELECT
+			token,
 			user_id,
 			expires_at
 		FROM auth_sessions
-		WHERE token = $1
-		`
+		WHERE token = '%s'`, token)
 
-	err := r.db.GetContext(ctx, &authSession, statement, token)
+	err := r.db.GetContext(ctx, &authSession, statement)
 	if err != nil {
 		return nil, err
 	}
@@ -72,9 +74,9 @@ func (r *authRepository) GetAuthSessionByToken(ctx context.Context, token string
 }
 
 func (r *authRepository) deleteAuthSession(ctx context.Context, tx sqlx.ExtContext, userID uuid.UUID) error {
-	query := `DELETE FROM auth_sessions WHERE user_id = $1`
+	query := fmt.Sprintf(`DELETE FROM auth_sessions WHERE user_id = '%s'`, userID)
 
-	res, err := tx.ExecContext(ctx, query, userID)
+	res, err := tx.ExecContext(ctx, query)
 	if err != nil {
 		return err
 	}
@@ -90,6 +92,7 @@ func (r *authRepository) deleteAuthSession(ctx context.Context, tx sqlx.ExtConte
 
 	return nil
 }
+
 
 func (r *authRepository) DeleteAuthSession(ctx context.Context, userID uuid.UUID) error {
 	return r.deleteAuthSession(ctx, r.db, userID)

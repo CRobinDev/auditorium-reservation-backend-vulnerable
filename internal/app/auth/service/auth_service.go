@@ -15,7 +15,6 @@ import (
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/infra/env"
-	"github.com/nathakusuma/auditorium-reservation-backend/pkg/bcrypt"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/jwt"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/mail"
@@ -27,16 +26,16 @@ import (
 type authService struct {
 	repo    contract.IAuthRepository
 	userSvc contract.IUserService
-	bcrypt  bcrypt.IBcrypt
-	jwt     jwt.IJwt
-	mailer  mail.IMailer
-	uuid    uuidpkg.IUUID
+	// bcrypt  bcrypt.IBcrypt
+	jwt    jwt.IJwt
+	mailer mail.IMailer
+	uuid   uuidpkg.IUUID
 }
 
 func NewAuthService(
 	authRepo contract.IAuthRepository,
 	userSvc contract.IUserService,
-	bcrypt bcrypt.IBcrypt,
+	// bcrypt bcrypt.IBcrypt,
 	jwt jwt.IJwt,
 	mailer mail.IMailer,
 	uuid uuidpkg.IUUID,
@@ -44,10 +43,10 @@ func NewAuthService(
 	return &authService{
 		repo:    authRepo,
 		userSvc: userSvc,
-		bcrypt:  bcrypt,
-		jwt:     jwt,
-		mailer:  mailer,
-		uuid:    uuid,
+		// bcrypt:  bcrypt,
+		jwt:    jwt,
+		mailer: mailer,
+		uuid:   uuid,
 	}
 }
 
@@ -213,8 +212,8 @@ func (s *authService) Login(ctx context.Context, req dto.LoginUserRequest) (dto.
 		return resp, errorpkg.ErrInternalServer.WithTraceID(traceID)
 	}
 
-	// check password
-	ok := s.bcrypt.Compare(req.Password, user.PasswordHash)
+	// check password (plain text)
+	ok := req.Password == user.PasswordHash
 	if !ok {
 		return resp, errorpkg.ErrCredentialsNotMatch
 	}

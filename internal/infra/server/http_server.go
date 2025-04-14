@@ -21,7 +21,6 @@ import (
 	usersvc "github.com/nathakusuma/auditorium-reservation-backend/internal/app/user/service"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/infra/env"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/middleware"
-	"github.com/nathakusuma/auditorium-reservation-backend/pkg/bcrypt"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/jwt"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/mail"
@@ -83,7 +82,8 @@ func (s *httpServer) MountMiddlewares() {
 }
 
 func (s *httpServer) MountRoutes(db *sqlx.DB, rds *redis.Client) {
-	bcryptInstance := bcrypt.GetBcrypt()
+	// Deleted for Cryptographic Failures.
+	// bcryptInstance := bcrypt.GetBcrypt()
 	jwtAccess := jwt.NewJwt(env.GetEnv().JwtAccessExpireDuration, env.GetEnv().JwtAccessSecretKey)
 	mailer := mail.NewMailDialer()
 	uuidInstance := uuidpkg.GetUUID()
@@ -103,8 +103,8 @@ func (s *httpServer) MountRoutes(db *sqlx.DB, rds *redis.Client) {
 	registrationRepository := registrationrepo.NewRegistrationRepository(db)
 	feedbackRepository := feedbackrepo.NewFeedbackRepository(db)
 
-	userService := usersvc.NewUserService(userRepository, bcryptInstance, uuidInstance)
-	authService := authsvc.NewAuthService(authRepository, userService, bcryptInstance, jwtAccess, mailer, uuidInstance)
+	userService := usersvc.NewUserService(userRepository, uuidInstance)
+	authService := authsvc.NewAuthService(authRepository, userService, jwtAccess, mailer, uuidInstance)
 	conferenceService := conferencesvc.NewConferenceService(conferenceRepository, uuidInstance)
 	registrationService := registrationsvc.NewRegistrationService(registrationRepository, conferenceService)
 	feedbackService := feedbacksvc.NewFeedbackService(feedbackRepository, registrationService, conferenceService,

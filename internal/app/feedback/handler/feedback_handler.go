@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/dto"
-	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/middleware"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/validator"
@@ -32,7 +31,6 @@ func InitFeedbackHandler(
 	feedbackGroup.Use(midw.RequireAuthenticated())
 
 	feedbackGroup.Post("",
-		midw.RequireOneOfRoles(enum.RoleUser),
 		handler.createFeedback(),
 	)
 
@@ -41,7 +39,6 @@ func InitFeedbackHandler(
 	)
 
 	feedbackGroup.Delete("/:id",
-		midw.RequireOneOfRoles(enum.RoleEventCoordinator),
 		handler.deleteFeedback(),
 	)
 }
