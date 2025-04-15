@@ -73,15 +73,12 @@ func (c *userHandler) createUser() fiber.Handler {
 
 func (c *userHandler) getUser(param string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		var userID uuid.UUID
+		var userID string
 		if param == "me" {
-			userID = ctx.Locals("user.id").(uuid.UUID)
+			oldUserID := ctx.Locals("user.id").(uuid.UUID)
+			userID = oldUserID.String()
 		} else {
-			var err error
-			userID, err = uuid.Parse(ctx.Params("id"))
-			if err != nil {
-				return errorpkg.ErrFailParseRequest
-			}
+			userID = ctx.Params("id")
 		}
 
 		user, err := c.svc.GetUserByID(ctx.Context(), userID)
@@ -113,7 +110,9 @@ func (c *userHandler) updateUser() fiber.Handler {
 			return err
 		}
 
-		if err := c.svc.UpdateUser(ctx.Context(), ctx.Locals("user.id").(uuid.UUID), req); err != nil {
+		oldUserID := ctx.Locals("user.id").(uuid.UUID)
+
+		if err := c.svc.UpdateUser(ctx.Context(), oldUserID.String(), req); err != nil {
 			return err
 		}
 
