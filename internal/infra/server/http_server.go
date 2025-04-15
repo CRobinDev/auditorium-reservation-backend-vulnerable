@@ -24,6 +24,7 @@ import (
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/jwt"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/mail"
+	"github.com/nathakusuma/auditorium-reservation-backend/pkg/supabase"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/uuidpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/validator"
 	"github.com/redis/go-redis/v9"
@@ -89,6 +90,7 @@ func (s *httpServer) MountRoutes(db *sqlx.DB, rds *redis.Client) {
 	uuidInstance := uuidpkg.GetUUID()
 	validatorInstance := validator.NewValidator()
 	middlewareInstance := middleware.NewMiddleware(jwtAccess)
+	supabase := supabase.New()
 
 	s.app.Get("/", func(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusOK).SendString("Healthy")
@@ -103,7 +105,7 @@ func (s *httpServer) MountRoutes(db *sqlx.DB, rds *redis.Client) {
 	registrationRepository := registrationrepo.NewRegistrationRepository(db)
 	feedbackRepository := feedbackrepo.NewFeedbackRepository(db)
 
-	userService := usersvc.NewUserService(userRepository, uuidInstance)
+	userService := usersvc.NewUserService(userRepository, supabase, uuidInstance)
 	authService := authsvc.NewAuthService(authRepository, userService, jwtAccess, mailer, uuidInstance)
 	conferenceService := conferencesvc.NewConferenceService(conferenceRepository, uuidInstance)
 	registrationService := registrationsvc.NewRegistrationService(registrationRepository, conferenceService)

@@ -117,3 +117,24 @@ func (r *userRepository) deleteUser(ctx context.Context, tx sqlx.ExtContext, id 
 func (r *userRepository) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return r.deleteUser(ctx, r.conn, id)
 }
+func (r *userRepository) UploadProfile(ctx context.Context, id uuid.UUID, url string) error {
+	return r.uploadProfile(ctx, r.conn, id, url)
+}
+
+func (r *userRepository) uploadProfile(ctx context.Context, tx sqlx.ExtContext, id uuid.UUID, url string) error {
+	res, err := tx.ExecContext(ctx, 
+	fmt.Sprintf(`UPDATE users SET photo_url = $1 WHERE id = $2`), url, id)
+    if err != nil {
+        return fmt.Errorf("failed to update photo URL: %w", err)
+    }
+
+    rowsAffected, err := res.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to check affected rows: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no user found with id %v", id)
+    }
+
+    return nil
+}

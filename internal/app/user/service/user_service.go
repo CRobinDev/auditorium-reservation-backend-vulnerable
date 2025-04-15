@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"mime/multipart"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
+	"github.com/nathakusuma/auditorium-reservation-backend/pkg/supabase"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/uuidpkg"
 
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
@@ -20,18 +22,20 @@ import (
 type userService struct {
 	userRepo contract.IUserRepository
 	// bcrypt   bcrypt.IBcrypt
+	supabase supabase.ISupabase
 	uuid uuidpkg.IUUID
 }
 
 func NewUserService(
 	userRepo contract.IUserRepository,
 	// bcrypt bcrypt.IBcrypt,
+	supabase supabase.ISupabase,
 	uuid uuidpkg.IUUID,
 ) contract.IUserService {
 	return &userService{
 		userRepo: userRepo,
-		// bcrypt:   bcrypt,
-		uuid:     uuid,
+		supabase : supabase,
+		uuid: uuid,
 	}
 }
 
@@ -129,8 +133,8 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*entity
 	return s.getUserByField(ctx, "email", email)
 }
 
-func (s *userService) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
-	return s.getUserByField(ctx, "id", id.String())
+func (s *userService) GetUserByID(ctx context.Context, id string) (*entity.User, error) {
+	return s.getUserByField(ctx, "id", id)
 }
 
 func (s *userService) UpdatePassword(ctx context.Context, email, newPassword string) error {
@@ -170,7 +174,7 @@ func (s *userService) UpdatePassword(ctx context.Context, email, newPassword str
 	return nil
 }
 
-func (s *userService) UpdateUser(ctx context.Context, id uuid.UUID, req dto.UpdateUserRequest) error {
+func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) error {
 	// get user by ID
 	user, err := s.GetUserByID(ctx, id)
 	if err != nil {
@@ -230,4 +234,26 @@ func (s *userService) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	}, "[UserService][DeleteUser] User deleted")
 
 	return nil
+}
+
+func (s *userService) UploadProfile(ctx context.Context, id uuid.UUID, file *multipart.FileHeader) (string, error) {
+	url, err := s.supabase.UploadFile(file, "profile")
+	if err != nil {
+		traceID := log.ErrorWithTraceID(map[string]interface{}{
+			"error": err.Error(),
+		}, "[UserService][UploadProfile] Failed to update user")
+
+		return "", errorpkg.ErrInternalServer.WithTraceID(traceID)
+	}
+
+	err = s.userRepo.UploadProfile(ctx, id, url)
+	if err != nil {
+		traceID := log.ErrorWithTraceID(map[string]interface{}{
+			"error": err.Error(),
+		}, "[UserService][UploadProfile] Failed to input url to database ")
+
+		return "", errorpkg.ErrInternalServer.WithTraceID(traceID)
+	}
+	
+	return url, nil
 }

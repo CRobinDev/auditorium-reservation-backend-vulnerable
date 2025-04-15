@@ -5,6 +5,7 @@ CREATE TABLE users (
 	password_hash CHAR(60) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK ( role IN ('admin', 'event_coordinator', 'user') ),
     bio VARCHAR(500),
+	photo_url varchar(256),
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	deleted_at TIMESTAMP

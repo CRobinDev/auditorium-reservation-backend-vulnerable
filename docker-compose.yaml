@@ -1,6 +1,6 @@
 services:
   app:
-    image: nathakusuma/auditorium-reservation-backend:latest
+    image: crobindev/auditorium-reservation-backend:latest
     env_file:
       - .env
     ports:
