@@ -55,27 +55,27 @@ $$
         VALUES
             -- Regular users
             (user1_id, 'User 1', 'user1@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user',
+             'DevSecOps', 'user',
              'Software Engineer with 5 years experience', NOW() - INTERVAL '30 days'),
             (user2_id, 'User 2', 'user2@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Product Manager at Tech Corp',
+             'DevSecOps', 'user', 'Product Manager at Tech Corp',
              NOW() - INTERVAL '30 days' + INTERVAL '1 hour'),
             (user3_id, 'User 3', 'user3@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Full Stack Developer',
+             'DevSecOps', 'user', 'Full Stack Developer',
              NOW() - INTERVAL '30 days' + INTERVAL '2 hours'),
             (user4_id, 'User 4', 'user4@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'user', 'Back End Developer',
+             'DevSecOps', 'user', 'Back End Developer',
              NOW() - INTERVAL '30 days' + INTERVAL '3 hours'),
             -- Event coordinator
             (ec1_id, 'Event Coordinator 1', 'ec1@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'event_coordinator',
+             'DevSecOps', 'event_coordinator',
              'Professional Event Coordinator', NOW() - INTERVAL '30 days' + INTERVAL '4 hours'),
             (ec2_id, 'Event Coordinator 2', 'ec2@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'event_coordinator',
+             'DevSecOps', 'event_coordinator',
              'Professional Event Coordinator', NOW() - INTERVAL '30 days' + INTERVAL '5 hours'),
             -- Admin
             (admin1_id, 'Admin User 1', 'admin1@seeder.nathakusuma.com',
-             '$2a$12$E4xTTvXywCecuIRpTi5XE.U2VMyx2joM5wKsmXxAIO3LkpKEvMzla', 'admin', 'System Administrator',
+             'DevSecOps', 'admin', 'System Administrator',
              NOW() - INTERVAL '30 days' + INTERVAL '6 hours');
 
         -- Conferences seeder
