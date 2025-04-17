@@ -6,7 +6,7 @@
 # Default environment variables for Docker Compose
 POSTGRES_URL := postgres://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
-MIGRATE_CMD=docker-compose run --rm migrate -database "postgres://auditorium-reservation-backend:bebek123@localhost:5432/auditorium-reservation-backend?sslmode=disable" -path migration/
+MIGRATE_CMD=docker compose run --rm migrate -database "${POSTGRES_URL}" -path migration/
 SEED_CMD=docker compose exec -T db psql -U $(DB_USER) -d $(DB_NAME) -W $(DB_PASS) < database/seeder/
 
 # Targets for different migration commands
