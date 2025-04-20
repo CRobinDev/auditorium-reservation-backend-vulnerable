@@ -279,7 +279,7 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (dt
 	}
 
 	// get user by authSession
-	user, err := s.userSvc.GetUserByID(ctx, authSession.UserID.String())
+	users, err := s.userSvc.GetUserByID(ctx, authSession.UserID.String())
 	if err != nil {
 		if errors.Is(err, errorpkg.ErrNotFound) {
 			return resp, errorpkg.ErrNotFound.WithMessage("User not found. Please register first.")
@@ -292,6 +292,8 @@ func (s *authService) RefreshToken(ctx context.Context, refreshToken string) (dt
 
 		return resp, errorpkg.ErrInternalServer.WithTraceID(traceID)
 	}
+
+	user := users[0]
 
 	accessToken, err := s.jwt.Create(user.ID, user.Role)
 	if err != nil {

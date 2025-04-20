@@ -44,30 +44,33 @@ func (r *userRepository) createUser(ctx context.Context, tx sqlx.ExtContext, use
 	return nil
 }
 
-func (r *userRepository) GetUserByField(ctx context.Context, field, value string) (*entity.User, error) {
-	var user entity.User
+func (r *userRepository) GetUserByField(ctx context.Context, field, value string) ([]*entity.User, error) {
+	var users []*entity.User
 
-	statement := `SELECT
-			id,
-			name,
-			email,
-			password_hash,
-			role,
-			bio,
-			created_at,
-			updated_at,
-			deleted_at
-		FROM users
-		WHERE ` + field + ` = $1
-		AND deleted_at IS NULL
-		`
+	statement := fmt.Sprintf(`SELECT
+            id,
+            name,
+            email,
+            password_hash,
+            role,
+            bio,
+            created_at,
+            updated_at,
+            deleted_at
+        FROM users
+        WHERE %s = '%s'
+        AND deleted_at IS NULL`, field, value)
 
-	err := r.conn.GetContext(ctx, &user, statement, value)
+	err := r.conn.SelectContext(ctx, &users, statement)
 	if err != nil {
 		return nil, err
 	}
 
-	return &user, nil
+	if len(users) == 0 {
+		return nil, sql.ErrNoRows
+	}
+
+	return users, nil
 }
 
 func (r *userRepository) updateUser(ctx context.Context, tx sqlx.ExtContext, user *entity.User) error {
@@ -122,19 +125,19 @@ func (r *userRepository) UploadProfile(ctx context.Context, id uuid.UUID, url st
 }
 
 func (r *userRepository) uploadProfile(ctx context.Context, tx sqlx.ExtContext, id uuid.UUID, url string) error {
-	res, err := tx.ExecContext(ctx, 
-	fmt.Sprintf(`UPDATE users SET photo_url = $1 WHERE id = $2`), url, id)
-    if err != nil {
-        return fmt.Errorf("failed to update photo URL: %w", err)
-    }
+	res, err := tx.ExecContext(ctx,
+		fmt.Sprintf(`UPDATE users SET photo_url = $1 WHERE id = $2`), url, id)
+	if err != nil {
+		return fmt.Errorf("failed to update photo URL: %w", err)
+	}
 
-    rowsAffected, err := res.RowsAffected()
-    if err != nil {
-        return fmt.Errorf("failed to check affected rows: %w", err)
-    }
-    if rowsAffected == 0 {
-        return fmt.Errorf("no user found with id %v", id)
-    }
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check affected rows: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("no user found with id %v", id)
+	}
 
-    return nil
+	return nil
 }
