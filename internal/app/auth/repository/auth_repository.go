@@ -42,10 +42,12 @@ func (r *authRepository) CreateAuthSession(ctx context.Context, session *entity.
 }
 
 func (r *authRepository) createAuthSession(ctx context.Context, tx sqlx.ExtContext, authSession *entity.AuthSession) error {
+	expiresAtStr := authSession.ExpiresAt.Format("2006-01-02 15:04:05")
+
 	query := fmt.Sprintf(`INSERT INTO auth_sessions (token, user_id, expires_at)
-				VALUES ('%s', '%s', '%s')
-				ON CONFLICT (user_id) DO UPDATE SET token = '%s', expires_at = '%s'`,
-		authSession.Token, authSession.UserID, authSession.ExpiresAt, authSession.Token, authSession.ExpiresAt)
+             VALUES ('%s', '%s', '%s')
+             ON CONFLICT (user_id) DO UPDATE SET token = '%s', expires_at = '%s'`,
+		authSession.Token, authSession.UserID, expiresAtStr, authSession.Token, expiresAtStr)
 
 	_, err := tx.ExecContext(ctx, query)
 	if err != nil {
@@ -92,7 +94,6 @@ func (r *authRepository) deleteAuthSession(ctx context.Context, tx sqlx.ExtConte
 
 	return nil
 }
-
 
 func (r *authRepository) DeleteAuthSession(ctx context.Context, userID uuid.UUID) error {
 	return r.deleteAuthSession(ctx, r.db, userID)

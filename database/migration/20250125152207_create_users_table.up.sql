@@ -2,7 +2,7 @@ CREATE TABLE users (
 	id UUID PRIMARY KEY,
 	name VARCHAR(100) NOT NULL,
 	email VARCHAR(320) NOT NULL,
-	password_hash CHAR(60) NOT NULL,
+	password_hash VARCHAR(60) NOT NULL,
     role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK ( role IN ('admin', 'event_coordinator', 'user') ),
     bio VARCHAR(500),
 	photo_url varchar(256),
