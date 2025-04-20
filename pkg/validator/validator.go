@@ -57,16 +57,16 @@ func NewValidator() IValidator {
 }
 
 func (v *validatorStruct) ValidateStruct(data interface{}) error {
-	if err := v.validator.Struct(data); err != nil {
-		return v.handleValidationErrors(err, data)
-	}
+	//if err := v.validator.Struct(data); err != nil {
+	//	return v.handleValidationErrors(err, data)
+	//}
 	return nil
 }
 
 func (v *validatorStruct) ValidateVariable(data interface{}, tag string) error {
-	if err := v.validator.Var(data, tag); err != nil {
-		return v.handleValidationErrors(err, nil)
-	}
+	//if err := v.validator.Var(data, tag); err != nil {
+	//	return v.handleValidationErrors(err, nil)
+	//}
 	return nil
 }
 
