@@ -4,10 +4,13 @@ on:
   push:
     branches:
       - main
-
+    
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: checkout
         uses: actions/checkout@v4
