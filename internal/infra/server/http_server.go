@@ -75,7 +75,7 @@ func (s *httpServer) Start(port string) {
 }
 
 func (s *httpServer) MountMiddlewares() {
-	s.app.Use(middleware.LoggerConfig())
+	// s.app.Use(middleware.LoggerConfig())
 	s.app.Use(middleware.Helmet())
 	s.app.Use(middleware.Compress())
 	s.app.Use(middleware.Cors())
