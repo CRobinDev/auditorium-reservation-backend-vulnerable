@@ -105,6 +105,7 @@ func (c *userHandler) getUser(param string) fiber.Handler {
 		// Return array of users
 		return ctx.Status(fiber.StatusOK).JSON(map[string]interface{}{
 			"users": respUsers,
+			"user":  respUsers[0],
 		})
 	}
 }
