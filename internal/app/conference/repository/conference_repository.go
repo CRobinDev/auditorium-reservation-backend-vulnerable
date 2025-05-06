@@ -35,7 +35,8 @@ func (r *conferenceRepository) createConference(ctx context.Context, tx sqlx.Ext
 					          '%s', '%s', '%d', '%s', '%s',
 					          '%s', '%s')`,
 		conference.ID, conference.Title, conference.Description, conference.SpeakerName, conference.SpeakerTitle,
-		conference.TargetAudience, *conference.Prerequisites, conference.Seats, conference.StartsAt, conference.EndsAt,
+		conference.TargetAudience, *conference.Prerequisites, conference.Seats,
+		conference.StartsAt.Format("2006-01-02 15:04:05"), conference.EndsAt.Format("2006-01-02 15:04:05"),
 		conference.HostID, conference.Status)
 
 	_, err := tx.ExecContext(ctx, query)
@@ -45,7 +46,6 @@ func (r *conferenceRepository) createConference(ctx context.Context, tx sqlx.Ext
 
 	return nil
 }
-
 
 func (r *conferenceRepository) CreateConference(ctx context.Context, conference *entity.Conference) error {
 	return r.createConference(ctx, r.db, conference)
@@ -80,7 +80,6 @@ func (r *conferenceRepository) GetConferenceByID(ctx context.Context, id uuid.UU
 	conference := row.ToEntity()
 	return &conference, nil
 }
-	
 
 func (r *conferenceRepository) GetConferences(ctx context.Context,
 	query *dto.GetConferenceQuery) ([]entity.Conference, dto.LazyLoadResponse, error) {
@@ -96,8 +95,6 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
         JOIN users u ON c.host_id = u.id
         LEFT JOIN registrations r ON c.id = r.conference_id
         WHERE c.deleted_at IS NULL`)
-
-	
 
 	// Build WHERE clause
 	var conditions []string
@@ -261,7 +258,8 @@ func (r *conferenceRepository) updateConference(ctx context.Context, tx sqlx.Ext
 		WHERE id = '%s'`,
 		conference.Title, conference.Description, conference.SpeakerName, conference.SpeakerTitle,
 		conference.TargetAudience, *conference.Prerequisites, conference.Seats,
-		conference.StartsAt, conference.EndsAt, conference.HostID, conference.Status, conference.ID)
+		conference.StartsAt.Format("2006-01-02 15:04:05"), conference.EndsAt.Format("2006-01-02 15:04:05"),
+		conference.HostID, conference.Status, conference.ID)
 
 	res, err := tx.ExecContext(ctx, query)
 	if err != nil {
@@ -279,7 +277,6 @@ func (r *conferenceRepository) updateConference(ctx context.Context, tx sqlx.Ext
 
 	return nil
 }
-
 
 func (r *conferenceRepository) UpdateConference(ctx context.Context, conference *entity.Conference) error {
 	return r.updateConference(ctx, r.db, conference)
@@ -306,7 +303,6 @@ func (r *conferenceRepository) deleteConference(ctx context.Context, tx sqlx.Ext
 	return nil
 }
 
-
 func (r *conferenceRepository) DeleteConference(ctx context.Context, id uuid.UUID) error {
 	return r.deleteConference(ctx, r.db, id)
 }
@@ -329,7 +325,7 @@ func (r *conferenceRepository) GetConferencesConflictingWithTime(ctx context.Con
 		AND c.starts_at < '%s'
 		AND c.ends_at > '%s'
 		ORDER BY c.starts_at
-		LIMIT 10`, excludeID, endsAt, startsAt)
+		LIMIT 10`, excludeID, endsAt.Format("2006-01-02 15:04:05"), startsAt.Format("2006-01-02 15:04:05"))
 
 	err := r.db.SelectContext(ctx, &conferences, query)
 	if err != nil {
