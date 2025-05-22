@@ -23,78 +23,77 @@ func NewFeedbackRepository(db *sqlx.DB) contract.IFeedbackRepository {
 }
 
 func (r *feedbackRepository) createFeedback(ctx context.Context, tx sqlx.ExtContext, feedback *entity.Feedback) error {
-    query := fmt.Sprintf(`INSERT INTO feedbacks (id, user_id, conference_id, comment, created_at)
+	query := fmt.Sprintf(`INSERT INTO feedbacks (id, user_id, conference_id, comment, created_at)
         VALUES ('%s', '%s', '%s', '%s', '%s')`,
-        feedback.ID, feedback.UserID, feedback.ConferenceID, feedback.Comment, feedback.CreatedAt)
+		feedback.ID, feedback.UserID, feedback.ConferenceID, feedback.Comment, feedback.CreatedAt.Format("2006-01-02 15:04:05"))
 
-    _, err := tx.ExecContext(ctx, query)
-    return err
+	_, err := tx.ExecContext(ctx, query)
+	return err
 }
-
 
 func (r *feedbackRepository) CreateFeedback(ctx context.Context, feedback *entity.Feedback) error {
 	return r.createFeedback(ctx, r.db, feedback)
 }
 
 func (r *feedbackRepository) GetFeedbacksByConferenceID(ctx context.Context,
-    conferenceID uuid.UUID, lazy dto.LazyLoadQuery) ([]entity.Feedback, dto.LazyLoadResponse, error) {
+	conferenceID uuid.UUID, lazy dto.LazyLoadQuery) ([]entity.Feedback, dto.LazyLoadResponse, error) {
 
-    var feedbacks []entity.Feedback
-    var query string
+	var feedbacks []entity.Feedback
+	var query string
 
-    query = fmt.Sprintf(`SELECT f.id, f.user_id, f.conference_id, f.comment, f.created_at, u.name as user_name
+	query = fmt.Sprintf(`SELECT f.id, f.user_id, f.conference_id, f.comment, f.created_at, u.name as user_name
         FROM feedbacks f
         JOIN users u ON f.user_id = u.id
         WHERE f.conference_id = '%s' AND f.deleted_at IS NULL`, conferenceID)
 
-    if lazy.AfterID != uuid.Nil {
-        query += fmt.Sprintf(" AND f.id > '%s'", lazy.AfterID)  // Rentan
-    }
-    if lazy.BeforeID != uuid.Nil {
-        query += fmt.Sprintf(" AND f.id < '%s'", lazy.BeforeID)  // Rentan
-    }
+	if lazy.AfterID != uuid.Nil {
+		query += fmt.Sprintf(" AND f.id > '%s'", lazy.AfterID) // Rentan
+	}
+	if lazy.BeforeID != uuid.Nil {
+		query += fmt.Sprintf(" AND f.id < '%s'", lazy.BeforeID) // Rentan
+	}
 
-    if lazy.BeforeID != uuid.Nil {
-        query += " ORDER BY f.id DESC"
-    } else {
-        query += " ORDER BY f.id ASC"
-    }
-    query += fmt.Sprintf(" LIMIT %d", lazy.Limit+1)  // Rentan
+	if lazy.BeforeID != uuid.Nil {
+		query += " ORDER BY f.id DESC"
+	} else {
+		query += " ORDER BY f.id ASC"
+	}
+	query += fmt.Sprintf(" LIMIT %d", lazy.Limit+1) // Rentan
 
-    rows, err := r.db.QueryContext(ctx, query)
-    if err != nil {
-        return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query feedbacks: %w", err)
-    }
-    defer rows.Close()
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query feedbacks: %w", err)
+	}
+	defer rows.Close()
 
-    for rows.Next() {
-        var row struct {
-            ID           uuid.UUID `db:"id"`
-            UserID       uuid.UUID `db:"user_id"`
-            ConferenceID uuid.UUID `db:"conference_id"`
-            Comment      string    `db:"comment"`
-            CreatedAt    time.Time `db:"created_at"`
-            UserName     string    `db:"user_name"`
-        }
+	for rows.Next() {
+		var row struct {
+			ID           uuid.UUID `db:"id"`
+			UserID       uuid.UUID `db:"user_id"`
+			ConferenceID uuid.UUID `db:"conference_id"`
+			Comment      string    `db:"comment"`
+			CreatedAt    time.Time `db:"created_at"`
+			UserName     string    `db:"user_name"`
+		}
 
-        if err2 := rows.Scan(&row.ID, &row.UserID, &row.ConferenceID, &row.Comment, &row.CreatedAt,
-            &row.UserName); err2 != nil {
-            return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to scan feedback: %w", err2)
-        }
+		if err2 := rows.Scan(&row.ID, &row.UserID, &row.ConferenceID, &row.Comment, &row.CreatedAt,
+			&row.UserName); err2 != nil {
+			return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to scan feedback: %w", err2)
+		}
 
-        feedback := entity.Feedback{
-            ID:           row.ID,
-            UserID:       row.UserID,
-            ConferenceID: row.ConferenceID,
-            Comment:      row.Comment,
-            CreatedAt:    row.CreatedAt,
-            User: &entity.User{
-                ID:   row.UserID,
-                Name: row.UserName,
-            },
-        }
-        feedbacks = append(feedbacks, feedback)
-    }
+		feedback := entity.Feedback{
+			ID:           row.ID,
+			UserID:       row.UserID,
+			ConferenceID: row.ConferenceID,
+			Comment:      row.Comment,
+			CreatedAt:    row.CreatedAt,
+			User: &entity.User{
+				ID:   row.UserID,
+				Name: row.UserName,
+			},
+		}
+		feedbacks = append(feedbacks, feedback)
+	}
 
 	if err := rows.Err(); err != nil {
 		return nil, dto.LazyLoadResponse{}, fmt.Errorf("error iterating feedbacks: %w", err)
@@ -151,7 +150,6 @@ func (r *feedbackRepository) deleteFeedback(ctx context.Context, tx sqlx.ExtCont
 	return err
 }
 
-
 func (r *feedbackRepository) DeleteFeedback(ctx context.Context, id uuid.UUID) error {
 	return r.deleteFeedback(ctx, r.db, id)
 }
@@ -170,4 +168,3 @@ func (r *feedbackRepository) IsFeedbackGiven(ctx context.Context, userID, confer
 
 	return exists, nil
 }
-

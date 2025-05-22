@@ -114,11 +114,11 @@ func (r *conferenceRepository) GetConferences(ctx context.Context,
 	conditions = append(conditions, fmt.Sprintf("c.status = '%s'", query.Status))
 
 	if query.StartsBefore != nil {
-		conditions = append(conditions, fmt.Sprintf("c.starts_at < '%s'", query.StartsBefore))
+		conditions = append(conditions, fmt.Sprintf("c.starts_at < '%s'", query.StartsBefore.Format("2006-01-02 15:04:05")))
 	}
 
 	if query.StartsAfter != nil {
-		conditions = append(conditions, fmt.Sprintf("c.starts_at > '%s'", query.StartsAfter))
+		conditions = append(conditions, fmt.Sprintf("c.starts_at > '%s'", query.StartsAfter.Format("2006-01-02 15:04:05")))
 	}
 
 	// Handle cursor-based pagination

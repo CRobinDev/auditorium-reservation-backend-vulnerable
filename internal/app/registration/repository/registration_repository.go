@@ -38,7 +38,6 @@ func (r *registrationRepository) createRegistration(ctx context.Context, tx sqlx
 	return nil
 }
 
-
 func (r *registrationRepository) CreateRegistration(ctx context.Context, registration *entity.Registration) error {
 	return r.createRegistration(ctx, r.db, registration)
 }
@@ -72,7 +71,6 @@ func (r *registrationRepository) GetRegisteredUsersByConference(ctx context.Cont
 		query += " ORDER BY id ASC"
 	}
 	query += fmt.Sprintf(" LIMIT $%d", argCount+1)
-	
 
 	// Execute query
 	rows, err := r.db.QueryContext(ctx, query)
@@ -229,7 +227,7 @@ func (r *registrationRepository) IsUserRegisteredToConference(ctx context.Contex
 	)`, conferenceID, userID)
 
 	if err := r.db.GetContext(ctx, &exists, query); err != nil {
-	return false, err
+		return false, err
 	}
 
 	return exists, nil
@@ -254,7 +252,8 @@ func (r *registrationRepository) GetConflictingRegistrations(ctx context.Context
                 ('%s' BETWEEN c.starts_at AND c.ends_at)
                 OR
                 (c.starts_at BETWEEN '%s' AND '%s')
-            )`, userID, startsAt, endsAt, startsAt, endsAt)
+            )`, userID, startsAt.Format("2006-01-02 15:04:05"), endsAt.Format("2006-01-02 15:04:05"),
+		startsAt.Format("2006-01-02 15:04:05"), endsAt.Format("2006-01-02 15:04:05"))
 
 	if err := r.db.SelectContext(ctx, &conferences, query); err != nil {
 		return nil, err
@@ -274,4 +273,3 @@ func (r *registrationRepository) CountRegistrationsByConference(ctx context.Cont
 
 	return count, nil
 }
-

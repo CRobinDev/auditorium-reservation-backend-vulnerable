@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"mime/multipart"
 
 	"github.com/google/uuid"
@@ -138,6 +139,7 @@ func (s *userService) GetUserByEmail(ctx context.Context, email string) (*entity
 }
 
 func (s *userService) GetUserByID(ctx context.Context, id string) ([]*entity.User, error) {
+	fmt.Println(id)
 	return s.getUserByField(ctx, "id", id)
 }
 
