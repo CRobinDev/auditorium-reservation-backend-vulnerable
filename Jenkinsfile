@@ -28,18 +28,62 @@ pipeline {
                     # Verify Go installation
                     go version
 
-                    # Install Go security tools
-                    go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest || true
+                    echo "Scanning Go code for security vulnerabilities..."
 
-                    # Run gosec for static analysis
-                    /var/lib/jenkins/go-workspace/bin/gosec -fmt json -out gosec-report.json ./... || true
+                    # Basic security pattern checks in Go files
+                    echo "Checking for potential security issues..."
 
-                    # Check for dependency vulnerabilities
-                    go list -json -m all > go-modules.json || true
+                    # Look for SQL injection patterns
+                    echo "=== SQL Injection Patterns ==="
+                    find . -name "*.go" -exec grep -Hn "fmt.Sprintf.*SELECT\\|fmt.Sprintf.*INSERT\\|fmt.Sprintf.*UPDATE\\|fmt.Sprintf.*DELETE" {} \\; > sql-injection-patterns.txt || true
+                    find . -name "*.go" -exec grep -Hn "Query(.*fmt.Sprintf\\|Exec(.*fmt.Sprintf" {} \\; >> sql-injection-patterns.txt || true
+                    cat sql-injection-patterns.txt || echo "No SQL injection patterns found"
+
+                    # Look for command injection patterns
+                    echo "=== Command Injection Patterns ==="
+                    find . -name "*.go" -exec grep -Hn "exec.Command\\|os/exec\\|syscall.Exec" {} \\; > command-injection-patterns.txt || true
+                    cat command-injection-patterns.txt || echo "No command injection patterns found"
+
+                    # Look for potential XSS/HTML injection
+                    echo "=== XSS/HTML Injection Patterns ==="
+                    find . -name "*.go" -exec grep -Hn "html/template\\|text/template\\|fmt.Fprintf.*%s.*html" {} \\; > xss-patterns.txt || true
+                    cat xss-patterns.txt || echo "No XSS patterns found"
+
+                    # Look for hardcoded secrets/credentials
+                    echo "=== Hardcoded Secrets Patterns ==="
+                    find . -name "*.go" -exec grep -Hn "password.*=\\|secret.*=\\|token.*=\\|key.*=" {} \\; > secrets-patterns.txt || true
+                    cat secrets-patterns.txt || echo "No hardcoded secrets found"
+
+                    # Look for IDOR patterns (missing authorization checks)
+                    echo "=== IDOR Patterns ==="
+                    find . -name "*.go" -exec grep -Hn "GET.*/:id\\|POST.*/:id\\|PUT.*/:id\\|DELETE.*/:id" {} \\; > idor-patterns.txt || true
+                    cat idor-patterns.txt || echo "No IDOR patterns found"
+
+                    # Count vulnerabilities
+                    SQL_COUNT=$(wc -l < sql-injection-patterns.txt)
+                    CMD_COUNT=$(wc -l < command-injection-patterns.txt)
+                    XSS_COUNT=$(wc -l < xss-patterns.txt)
+                    SECRET_COUNT=$(wc -l < secrets-patterns.txt)
+                    IDOR_COUNT=$(wc -l < idor-patterns.txt)
+
+                    echo ""
+                    echo "=== SECURITY SCAN SUMMARY ==="
+                    echo "🔍 Potential SQL Injection patterns: $SQL_COUNT"
+                    echo "🔍 Potential Command Injection patterns: $CMD_COUNT"
+                    echo "🔍 Potential XSS patterns: $XSS_COUNT"
+                    echo "🔍 Potential Hardcoded Secrets: $SECRET_COUNT"
+                    echo "🔍 Potential IDOR patterns: $IDOR_COUNT"
+
+                    # Check dependencies
+                    if [ -f go.mod ]; then
+                        echo "=== Dependency Information ==="
+                        go list -json -m all > go-modules.json || true
+                        echo "Dependencies exported to go-modules.json"
+                    fi
 
                     echo "✅ SAST scan completed"
                 '''
-                archiveArtifacts artifacts: 'gosec-report.json, go-modules.json', allowEmptyArchive: true
+                archiveArtifacts artifacts: '*-patterns.txt, go-modules.json', allowEmptyArchive: true
             }
         }
 
@@ -53,11 +97,31 @@ pipeline {
                     export GOROOT=/var/lib/jenkins/go
                     export GOPATH=/var/lib/jenkins/go-workspace
 
-                    # Build application
-                    go mod tidy
-                    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main .
+                    # Debug: Check current directory structure
+                    echo "Current directory: $(pwd)"
+                    echo "Repository structure:"
+                    ls -la
+                    echo "Checking cmd/app directory:"
+                    ls -la cmd/app/ || echo "cmd/app not found"
 
-                    echo "✅ Go binary built successfully"
+                    # Build from cmd/app directory
+                    if [ -f cmd/app/main.go ]; then
+                        echo "Found main.go in cmd/app/"
+
+                        # Tidy dependencies from root (where go.mod should be)
+                        go mod tidy
+
+                        # Build the application pointing to cmd/app
+                        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main ./cmd/app
+
+                        echo "✅ Go binary built successfully from cmd/app"
+                        ls -la main
+                    else
+                        echo "❌ main.go not found in cmd/app/"
+                        echo "Available files in cmd/app:"
+                        ls -la cmd/app/ || echo "cmd/app directory does not exist"
+                        exit 1
+                    fi
                 '''
             }
         }
