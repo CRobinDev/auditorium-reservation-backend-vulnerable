@@ -18,11 +18,11 @@ spec:
           image: postgres:17.2
           env:
             - name: POSTGRES_DB
-              value: "auditorium_db"
+              value: "auditorium-reservation-backend"
             - name: POSTGRES_USER
-              value: "postgres"
+              value: "auditorium-reservation-backend"
             - name: POSTGRES_PASSWORD
-              value: "password123"
+              value: "thisisasamplepassword"
           ports:
             - containerPort: 5432
           volumeMounts:

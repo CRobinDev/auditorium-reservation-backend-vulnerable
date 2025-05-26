@@ -17,24 +17,65 @@ spec:
         - name: backend
           image: localhost:30500/auditorium-backend:${BUILD_NUMBER}
           ports:
-            - containerPort: 8080
+            - containerPort: 8081
           env:
+            # App Configuration
+            - name: APP_ENV
+              value: "production"
+            - name: APP_PORT
+              value: "8081"
+            - name: APP_URL
+              value: "http://localhost"
+            - name: FRONTEND_URL
+              value: "http://localhost:3000"
+
+            # Database Configuration
             - name: DB_HOST
               value: "postgres-service"
             - name: DB_PORT
               value: "5432"
-            - name: DB_NAME
-              value: "auditorium_db"
             - name: DB_USER
-              value: "postgres"
+              value: "auditorium-reservation-backend"
             - name: DB_PASS
-              value: "password123"
+              value: "thisisasamplepassword"
+            - name: DB_NAME
+              value: "auditorium-reservation-backend"
+
+            # Redis Configuration
             - name: REDIS_HOST
               value: "redis-service"
             - name: REDIS_PORT
               value: "6379"
-            - name: APP_PORT
-              value: "8080"
+            - name: REDIS_PASS
+              value: "thisisasamssword"
+            - name: REDIS_DB
+              value: "0"
+
+            # Email Configuration
+            - name: SMTP_HOST
+              value: "smtp.gmail.com"
+            - name: SMTP_PORT
+              value: "587"
+            - name: SMTP_USERNAME
+              value: "lineeranail.com"
+            - name: SMTP_EMAIL
+              value: "lineeranger69@gmail.com.com"
+            - name: SMTP_PASSWORD
+              value: "ltlajgywtbaxdbxr"
+
+            # JWT Configuration
+            - name: JWT_ACCESS_SECRET_KEY
+              value: "thisisassecret"
+            - name: JWT_ACCESS_EXPIRE_DURATION
+              value: "10m"
+            - name: JWT_REFRESH_EXPIRE_DURATION
+              value: "720h"
+
+            # Grafana (if needed)
+            - name: GRAFANA_ADMIN_USER
+              value: "admin"
+            - name: GRAFANA_ADMIN_PASSWORD
+              value: "thisisasasword"
 ---
 apiVersion: v1
 kind: Service
@@ -46,6 +87,6 @@ spec:
   selector:
     app: auditorium-backend
   ports:
-    - port: 8080
-      targetPort: 8080
-      nodePort: 30080
+    - port: 8081
+      targetPort: 8081
+      nodePort: 30081
