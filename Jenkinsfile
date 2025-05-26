@@ -20,11 +20,19 @@ pipeline {
                 sh '''
                     echo "🔍 Running Static Application Security Testing..."
 
+                    # Set Go environment
+                    export PATH=$PATH:/var/lib/jenkins/go/bin
+                    export GOROOT=/var/lib/jenkins/go
+                    export GOPATH=/var/lib/jenkins/go-workspace
+
+                    # Verify Go installation
+                    go version
+
                     # Install Go security tools
                     go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest || true
 
                     # Run gosec for static analysis
-                    ~/go/bin/gosec -fmt json -out gosec-report.json ./... || true
+                    /var/lib/jenkins/go-workspace/bin/gosec -fmt json -out gosec-report.json ./... || true
 
                     # Check for dependency vulnerabilities
                     go list -json -m all > go-modules.json || true
@@ -39,8 +47,16 @@ pipeline {
             steps {
                 sh '''
                     echo "🔨 Building Go application..."
+
+                    # Set Go environment
+                    export PATH=$PATH:/var/lib/jenkins/go/bin
+                    export GOROOT=/var/lib/jenkins/go
+                    export GOPATH=/var/lib/jenkins/go-workspace
+
+                    # Build application
                     go mod tidy
                     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o main .
+
                     echo "✅ Go binary built successfully"
                 '''
             }
