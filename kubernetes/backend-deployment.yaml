@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auditorium-backend
+  namespace: auditorium
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: auditorium-backend
+  template:
+    metadata:
+      labels:
+        app: auditorium-backend
+    spec:
+      containers:
+        - name: backend
+          image: localhost:30500/auditorium-backend:${BUILD_NUMBER}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: "postgres-service"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: "auditorium_db"
+            - name: DB_USER
+              value: "postgres"
+            - name: DB_PASS
+              value: "password123"
+            - name: REDIS_HOST
+              value: "redis-service"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: APP_PORT
+              value: "8080"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auditorium-backend-service
+  namespace: auditorium
+spec:
+  type: NodePort
+  selector:
+    app: auditorium-backend
+  ports:
+    - port: 8080
+      targetPort: 8080
+      nodePort: 30080
