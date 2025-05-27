@@ -159,10 +159,10 @@ EOF
             }
         }
 
-        stage('Deploy to Kubernetes') {
+        stage('Deploy Infrastructure') {
             steps {
                 sh '''
-                    echo "🚀 Deploying to Kubernetes..."
+                    echo "🚀 Deploying infrastructure..."
 
                     # Create namespace
                     kubectl apply -f kubernetes/namespace.yaml
@@ -175,6 +175,142 @@ EOF
                     kubectl wait --for=condition=available --timeout=300s deployment/postgres -n auditorium || true
                     kubectl wait --for=condition=available --timeout=300s deployment/redis -n auditorium || true
 
+                    echo "✅ Infrastructure deployed successfully"
+                '''
+            }
+        }
+
+        stage('Database Migration & Seeding') {
+            steps {
+                sh '''
+                    echo "📋 Setting up migration and seeder ConfigMaps..."
+
+                    # Create or update migration ConfigMap from actual files
+                    kubectl create configmap migration-files \
+                        --from-file=database/migration/ \
+                        --namespace=auditorium \
+                        --dry-run=client -o yaml | kubectl apply -f -
+
+                    # Create or update seeder ConfigMap from actual files
+                    kubectl create configmap seeder-files \
+                        --from-file=database/seeder/ \
+                        --namespace=auditorium \
+                        --dry-run=client -o yaml | kubectl apply -f -
+
+                    echo "✅ ConfigMaps created/updated from actual migration and seeder files"
+
+                    # Wait for database to be ready
+                    echo "⏳ Waiting for database to be ready..."
+                    kubectl wait --for=condition=available --timeout=300s deployment/postgres -n auditorium
+
+                    echo "🗃️ Running database migration..."
+
+                    # Create and run migration job
+                    kubectl apply -f - <<EOF
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migration-${BUILD_NUMBER}
+  namespace: auditorium
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: migrate/migrate:v4.17.0
+          command: ["/migrate"]
+          args:
+            - "-path=/migrations"
+            - "-database=postgres://auditorium-reservation-backend:thisisasamplepassword@postgres-service:5432/auditorium-reservation-backend?sslmode=disable"
+            - "up"
+          volumeMounts:
+            - name: migrations
+              mountPath: /migrations
+      volumes:
+        - name: migrations
+          configMap:
+            name: migration-files
+EOF
+
+                    # Wait for migration to complete
+                    echo "⏳ Waiting for migration to complete..."
+                    kubectl wait --for=condition=complete --timeout=300s job/db-migration-${BUILD_NUMBER} -n auditorium
+
+                    # Check migration logs
+                    echo "📋 Migration logs:"
+                    kubectl logs job/db-migration-${BUILD_NUMBER} -n auditorium
+
+                    echo "🌱 Running database seeding..."
+
+                    # Create and run seeder job with duplicate check
+                    kubectl apply -f - <<EOF
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-seeder-${BUILD_NUMBER}
+  namespace: auditorium
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: seeder
+          image: postgres:17.2
+          command: ['sh', '-c']
+          args:
+            - |
+              echo "Checking if seeder data already exists..."
+
+              # Check if seeder data exists
+              EXISTING_USERS=\\$(psql "postgres://auditorium-reservation-backend:thisisasamplepassword@postgres-service:5432/auditorium-reservation-backend" -t -c "SELECT COUNT(*) FROM users WHERE email LIKE '%@seeder.nathakusuma.com';" 2>/dev/null | xargs)
+
+              if [ "\\$EXISTING_USERS" -gt 0 ]; then
+                echo "Seeder data already exists (\\$EXISTING_USERS users found), skipping..."
+              else
+                echo "No seeder data found, running seeder..."
+                psql "postgres://auditorium-reservation-backend:thisisasamplepassword@postgres-service:5432/auditorium-reservation-backend" -f /seeders/dev.up.sql
+                echo "✅ Seeding completed!"
+              fi
+          volumeMounts:
+            - name: seeders
+              mountPath: /seeders
+      volumes:
+        - name: seeders
+          configMap:
+            name: seeder-files
+EOF
+
+                    # Wait for seeding to complete
+                    echo "⏳ Waiting for seeding to complete..."
+                    kubectl wait --for=condition=complete --timeout=300s job/db-seeder-${BUILD_NUMBER} -n auditorium
+
+                    # Check seeder logs
+                    echo "🌱 Seeder logs:"
+                    kubectl logs job/db-seeder-${BUILD_NUMBER} -n auditorium
+
+                    # Verify database setup
+                    echo "🔍 Verifying database setup..."
+                    kubectl exec deployment/postgres -n auditorium -- psql -U auditorium-reservation-backend -d auditorium-reservation-backend -c "\\\\dt"
+
+                    # Count records
+                    echo "📊 Database record counts:"
+                    kubectl exec deployment/postgres -n auditorium -- psql -U auditorium-reservation-backend -d auditorium-reservation-backend -c "SELECT 'Users: ' || COUNT(*) FROM users; SELECT 'Conferences: ' || COUNT(*) FROM conferences; SELECT 'Registrations: ' || COUNT(*) FROM registrations;"
+
+                    # Clean up old migration/seeder jobs (keep only last 3)
+                    kubectl get jobs -n auditorium | grep "db-migration-" | head -n -3 | awk '{print \\$1}' | xargs -r kubectl delete job -n auditorium || true
+                    kubectl get jobs -n auditorium | grep "db-seeder-" | head -n -3 | awk '{print \\$1}' | xargs -r kubectl delete job -n auditorium || true
+
+                    echo "✅ Database migration and seeding completed successfully!"
+                '''
+            }
+        }
+
+        stage('Deploy Backend Application') {
+            steps {
+                sh '''
+                    echo "🚀 Deploying backend application..."
+
                     # Update backend deployment with build number
                     sed -i "s|\\${BUILD_NUMBER}|${BUILD_NUMBER}|g" kubernetes/backend-deployment.yaml
 
@@ -184,7 +320,7 @@ EOF
                     # Wait for backend deployment
                     kubectl wait --for=condition=available --timeout=300s deployment/auditorium-backend -n auditorium || true
 
-                    echo "✅ Application deployed successfully"
+                    echo "✅ Backend application deployed successfully"
                 '''
             }
         }
@@ -196,7 +332,7 @@ EOF
 
                     # Get application URL
                     NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
-                    APP_URL="http://$NODE_IP:30080"
+                    APP_URL="http://$NODE_IP:30081"
 
                     # Wait for application to be ready
                     echo "⏳ Waiting for application to be ready..."
@@ -261,15 +397,19 @@ EOF
             sh '''
                 NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
                 echo "✅ Pipeline completed successfully!"
-                echo "🌐 Application accessible at: http://$NODE_IP:30080"
+                echo "🌐 Application accessible at: http://$NODE_IP:30081"
                 echo "📊 Security reports available in Jenkins artifacts"
                 echo ""
-                echo "🎯 DAST found vulnerabilities in your existing backend."
+                echo "🗃️ Database Status:"
+                echo "📋 Migration and seeding completed automatically"
+                echo "📊 Check database for tables and seeded data"
+                echo ""
+                echo "🎯 DAST found vulnerabilities in your backend."
                 echo "📋 Next steps:"
-                echo "1. Review zap-report.json and gosec-report.json"
+                echo "1. Review zap-report.json and security scan results"
                 echo "2. Identify 3 vulnerabilities to fix"
                 echo "3. Fix them one by one and re-run pipeline"
-                echo "4. Repeat until all vulnerabilities are resolved"
+                echo "4. Database will auto-migrate on each deployment"
             '''
         }
         failure {
@@ -279,6 +419,10 @@ EOF
                 kubectl get pods -n auditorium || true
                 kubectl describe pods -n auditorium || true
                 kubectl logs -l app=auditorium-backend -n auditorium --tail=50 || true
+
+                # Check migration/seeder job logs if they exist
+                kubectl logs job/db-migration-${BUILD_NUMBER} -n auditorium || true
+                kubectl logs job/db-seeder-${BUILD_NUMBER} -n auditorium || true
             '''
         }
     }
