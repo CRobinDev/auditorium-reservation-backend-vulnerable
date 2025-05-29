@@ -1,10 +1,10 @@
 package middleware
 
 import (
-	"strings"
-
 	"github.com/google/uuid"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
+	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/jwt"
@@ -29,15 +29,14 @@ func (m *Middleware) RequireAuthenticated() fiber.Handler {
 			return errorpkg.ErrInvalidBearerToken
 		}
 
-		// Dihapus untuk Identification & Authentication Failures Vulnerable.
-		// expirationTime, err := claims.GetExpirationTime()
-		// if err != nil {
-		// 	return errorpkg.ErrInvalidBearerToken
-		// }
+		expirationTime, err := claims.GetExpirationTime()
+		if err != nil {
+			return errorpkg.ErrInvalidBearerToken
+		}
 
-		// if expirationTime.Before(time.Now()) {
-		// 	return errorpkg.ErrInvalidBearerToken
-		// }
+		if expirationTime.Before(time.Now()) {
+			return errorpkg.ErrInvalidBearerToken
+		}
 
 		ctx.Locals("user.id", uuid.MustParse(claims.Subject))
 
