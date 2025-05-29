@@ -9,7 +9,6 @@ import (
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"github.com/nathakusuma/auditorium-reservation-backend/internal/middleware"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/validator"
-	"net/url"
 )
 
 type userHandler struct {
@@ -77,38 +76,31 @@ func (c *userHandler) createUser() fiber.Handler {
 
 func (c *userHandler) getUser(param string) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		var userID string
-		var err error
+		var userID uuid.UUID
 		if param == "me" {
-			oldUserID := ctx.Locals("user.id").(uuid.UUID)
-			userID = oldUserID.String()
+			userID = ctx.Locals("user.id").(uuid.UUID)
 		} else {
-			userID, err = url.QueryUnescape(ctx.Params("id"))
+			var err error
+			userID, err = uuid.Parse(ctx.Params("id"))
 			if err != nil {
 				return errorpkg.ErrFailParseRequest
 			}
 		}
 
-		users, err := c.svc.GetUserByID(ctx.Context(), userID)
+		user, err := c.svc.GetUserByID(ctx.Context(), userID)
 		if err != nil {
 			return err
 		}
 
-		var respUsers []dto.UserResponse
-		for _, user := range users {
-			resp := dto.UserResponse{}
-			if param == "me" {
-				resp.PopulateFromEntity(user)
-			} else {
-				resp.PopulateFromEntity(user)
-			}
-			respUsers = append(respUsers, resp)
+		resp := dto.UserResponse{}
+		if param == "me" {
+			resp.PopulateFromEntity(user)
+		} else {
+			resp.PopulateMinimalFromEntity(user)
 		}
 
-		// Return array of users
 		return ctx.Status(fiber.StatusOK).JSON(map[string]interface{}{
-			"users": respUsers,
-			"user":  respUsers[0],
+			"user": resp,
 		})
 	}
 }
@@ -124,9 +116,7 @@ func (c *userHandler) updateUser() fiber.Handler {
 			return err
 		}
 
-		oldUserID := ctx.Locals("user.id").(uuid.UUID)
-
-		if err := c.svc.UpdateUser(ctx.Context(), oldUserID.String(), req); err != nil {
+		if err := c.svc.UpdateUser(ctx.Context(), ctx.Locals("user.id").(uuid.UUID), req); err != nil {
 			return err
 		}
 

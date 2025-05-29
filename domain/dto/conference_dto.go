@@ -42,7 +42,7 @@ func (c *ConferenceResponse) PopulateFromEntity(conference *entity.Conference) *
 	c.UpdatedAt = &conference.UpdatedAt
 
 	c.SeatsTaken = &conference.RegistrationCount
-	c.Host = new(UserResponse).PopulateFromEntity(&conference.Host)
+	c.Host = new(UserResponse).PopulateMinimalFromEntity(&conference.Host)
 	return c
 }
 

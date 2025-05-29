@@ -4,9 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"mime/multipart"
-
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
@@ -14,6 +11,7 @@ import (
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/log"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/supabase"
 	"github.com/nathakusuma/auditorium-reservation-backend/pkg/uuidpkg"
+	"mime/multipart"
 
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/contract"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/dto"
@@ -108,8 +106,9 @@ func (s *userService) CreateUser(ctx context.Context, req *dto.CreateUserRequest
 	return userID, nil
 }
 
-func (s *userService) getUserByField(ctx context.Context, field, value string) ([]*entity.User, error) {
-	users, err := s.userRepo.GetUserByField(ctx, field, value)
+func (s *userService) getUserByField(ctx context.Context, field, value string) (*entity.User, error) {
+	// get from repository
+	user, err := s.userRepo.GetUserByField(ctx, field, value)
 	if err != nil {
 		// if user not found
 		if errors.Is(err, sql.ErrNoRows) {
@@ -126,21 +125,15 @@ func (s *userService) getUserByField(ctx context.Context, field, value string) (
 		return nil, errorpkg.ErrInternalServer.WithTraceID(traceID)
 	}
 
-	return users, nil
+	return user, nil
 }
 
 func (s *userService) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
-	users, err := s.getUserByField(ctx, "email", email)
-	if err != nil {
-		return nil, err
-	}
-
-	return users[0], nil
+	return s.getUserByField(ctx, "email", email)
 }
 
-func (s *userService) GetUserByID(ctx context.Context, id string) ([]*entity.User, error) {
-	fmt.Println(id)
-	return s.getUserByField(ctx, "id", id)
+func (s *userService) GetUserByID(ctx context.Context, id uuid.UUID) (*entity.User, error) {
+	return s.getUserByField(ctx, "id", id.String())
 }
 
 func (s *userService) UpdatePassword(ctx context.Context, email, newPassword string) error {
@@ -180,14 +173,12 @@ func (s *userService) UpdatePassword(ctx context.Context, email, newPassword str
 	return nil
 }
 
-func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) error {
+func (s *userService) UpdateUser(ctx context.Context, id uuid.UUID, req dto.UpdateUserRequest) error {
 	// get user by ID
-	users, err := s.GetUserByID(ctx, id)
+	user, err := s.GetUserByID(ctx, id)
 	if err != nil {
 		return err
 	}
-
-	user := users[0]
 
 	// update user data
 	if req.Name != nil {

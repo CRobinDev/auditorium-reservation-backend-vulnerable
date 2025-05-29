@@ -23,11 +23,9 @@ func NewFeedbackRepository(db *sqlx.DB) contract.IFeedbackRepository {
 }
 
 func (r *feedbackRepository) createFeedback(ctx context.Context, tx sqlx.ExtContext, feedback *entity.Feedback) error {
-	query := fmt.Sprintf(`INSERT INTO feedbacks (id, user_id, conference_id, comment, created_at)
-        VALUES ('%s', '%s', '%s', '%s', '%s')`,
-		feedback.ID, feedback.UserID, feedback.ConferenceID, feedback.Comment, feedback.CreatedAt.Format("2006-01-02 15:04:05"))
-
-	_, err := tx.ExecContext(ctx, query)
+	query := `INSERT INTO feedbacks (id, user_id, conference_id, comment, created_at)
+		VALUES (:id, :user_id, :conference_id, :comment, :created_at)`
+	_, err := sqlx.NamedExecContext(ctx, tx, query, feedback)
 	return err
 }
 
@@ -39,33 +37,44 @@ func (r *feedbackRepository) GetFeedbacksByConferenceID(ctx context.Context,
 	conferenceID uuid.UUID, lazy dto.LazyLoadQuery) ([]entity.Feedback, dto.LazyLoadResponse, error) {
 
 	var feedbacks []entity.Feedback
-	var query string
+	var args []interface{}
+	args = append(args, conferenceID)
+	argCount := 1
 
-	query = fmt.Sprintf(`SELECT f.id, f.user_id, f.conference_id, f.comment, f.created_at, u.name as user_name
+	query := `SELECT f.id, f.user_id, f.conference_id, f.comment, f.created_at, u.name as user_name
         FROM feedbacks f
         JOIN users u ON f.user_id = u.id
-        WHERE f.conference_id = '%s' AND f.deleted_at IS NULL`, conferenceID)
+        WHERE f.conference_id = $1 AND f.deleted_at IS NULL`
 
+	// Add pagination filters
 	if lazy.AfterID != uuid.Nil {
-		query += fmt.Sprintf(" AND f.id > '%s'", lazy.AfterID) // Rentan
+		query += fmt.Sprintf(" AND f.id > $%d", argCount+1)
+		args = append(args, lazy.AfterID)
+		argCount++
 	}
 	if lazy.BeforeID != uuid.Nil {
-		query += fmt.Sprintf(" AND f.id < '%s'", lazy.BeforeID) // Rentan
+		query += fmt.Sprintf(" AND f.id < $%d", argCount+1)
+		args = append(args, lazy.BeforeID)
+		argCount++
 	}
 
+	// Add ordering and limit
 	if lazy.BeforeID != uuid.Nil {
 		query += " ORDER BY f.id DESC"
 	} else {
 		query += " ORDER BY f.id ASC"
 	}
-	query += fmt.Sprintf(" LIMIT %d", lazy.Limit+1) // Rentan
+	query += fmt.Sprintf(" LIMIT $%d", argCount+1)
+	args = append(args, lazy.Limit+1) // Request one extra record to determine if there are more results
 
-	rows, err := r.db.QueryContext(ctx, query)
+	// Execute query
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query feedbacks: %w", err)
 	}
 	defer rows.Close()
 
+	// Scan results
 	for rows.Next() {
 		var row struct {
 			ID           uuid.UUID `db:"id"`
@@ -98,6 +107,8 @@ func (r *feedbackRepository) GetFeedbacksByConferenceID(ctx context.Context,
 	if err := rows.Err(); err != nil {
 		return nil, dto.LazyLoadResponse{}, fmt.Errorf("error iterating feedbacks: %w", err)
 	}
+
+	// Prepare response
 	lazyResp := dto.LazyLoadResponse{
 		HasMore: false,
 		FirstID: nil,
@@ -131,9 +142,8 @@ func (r *feedbackRepository) GetFeedbacksByConferenceID(ctx context.Context,
 }
 
 func (r *feedbackRepository) deleteFeedback(ctx context.Context, tx sqlx.ExtContext, id uuid.UUID) error {
-	query := fmt.Sprintf(`UPDATE feedbacks SET deleted_at = now() WHERE id = '%s'`, id)
-
-	res, err := tx.ExecContext(ctx, query)
+	query := `UPDATE feedbacks SET deleted_at = now() WHERE id = $1`
+	res, err := tx.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete feedback: %w", err)
 	}
@@ -156,13 +166,16 @@ func (r *feedbackRepository) DeleteFeedback(ctx context.Context, id uuid.UUID) e
 
 func (r *feedbackRepository) IsFeedbackGiven(ctx context.Context, userID, conferenceID uuid.UUID) (bool, error) {
 	var exists bool
-	query := fmt.Sprintf(`SELECT EXISTS (
+	if err := r.db.GetContext(
+		ctx,
+		&exists,
+		`SELECT EXISTS (
 				SELECT 1 FROM feedbacks
-				WHERE conference_id = '%s'
-				AND user_id = '%s'
-			)`, conferenceID, userID)
-
-	if err := r.db.GetContext(ctx, &exists, query); err != nil {
+				WHERE conference_id = $1
+				AND user_id = $2
+			)`,
+		conferenceID, userID,
+	); err != nil {
 		return false, err
 	}
 

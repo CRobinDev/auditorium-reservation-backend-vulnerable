@@ -22,15 +22,19 @@ func NewRegistrationRepository(db *sqlx.DB) contract.IRegistrationRepository {
 	}
 }
 
-func (r *registrationRepository) createRegistration(ctx context.Context, tx sqlx.ExtContext, registration *entity.Registration) error {
-	query := fmt.Sprintf(`INSERT INTO registrations (
+func (r *registrationRepository) createRegistration(ctx context.Context, tx sqlx.ExtContext,
+	registration *entity.Registration) error {
+
+	_, err := sqlx.NamedExecContext(
+		ctx,
+		tx,
+		`INSERT INTO registrations (
 			conference_id, user_id
 		) VALUES (
-			'%s', '%s'
+			:conference_id, :user_id
 		)`,
-		registration.ConferenceID, registration.UserID)
-
-	_, err := tx.ExecContext(ctx, query)
+		registration,
+	)
 	if err != nil {
 		return err
 	}
@@ -50,18 +54,22 @@ func (r *registrationRepository) GetRegisteredUsersByConference(ctx context.Cont
 	args = append(args, conferenceID)
 	argCount := 1
 
-	query := fmt.Sprintf(`SELECT id, name FROM users
+	query := `SELECT id, name FROM users
         WHERE id IN (
             SELECT user_id FROM registrations
-            WHERE conference_id = '%s'
-        )`, conferenceID)
+            WHERE conference_id = $1
+        )`
 
 	// Add pagination filters
 	if lazy.AfterID != uuid.Nil {
-		query += fmt.Sprintf(" AND id > '%d'", lazy.AfterID) // Rentan
+		query += fmt.Sprintf(" AND id > $%d", argCount+1)
+		args = append(args, lazy.AfterID)
+		argCount++
 	}
 	if lazy.BeforeID != uuid.Nil {
-		query += fmt.Sprintf(" AND id < '%d'", lazy.BeforeID) // Rentan
+		query += fmt.Sprintf(" AND id < $%d", argCount+1)
+		args = append(args, lazy.BeforeID)
+		argCount++
 	}
 
 	// Add ordering and limit
@@ -71,9 +79,10 @@ func (r *registrationRepository) GetRegisteredUsersByConference(ctx context.Cont
 		query += " ORDER BY id ASC"
 	}
 	query += fmt.Sprintf(" LIMIT $%d", argCount+1)
+	args = append(args, lazy.Limit+1) // Request one extra record to determine if there are more results
 
 	// Execute query
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query registered users: %w", err)
 	}
@@ -129,41 +138,53 @@ func (r *registrationRepository) GetRegisteredConferencesByUser(ctx context.Cont
 	includePast bool, lazy dto.LazyLoadQuery) ([]entity.Conference, dto.LazyLoadResponse, error) {
 
 	var conferences []entity.Conference
-	var query string
+	var args []interface{}
+	args = append(args, userID)
+	argCount := 1
 
-	query = fmt.Sprintf(`SELECT
+	query := `SELECT
         c.id, c.title, c.description, c.speaker_name, c.speaker_title,
         c.target_audience, c.prerequisites, c.seats, c.starts_at, c.ends_at,
         c.host_id, c.status, c.created_at, c.updated_at, u.name AS host_name
     FROM conferences c
     JOIN users u ON c.host_id = u.id
     JOIN registrations r ON c.id = r.conference_id
-    WHERE r.user_id = '%s'`, userID)
+    WHERE r.user_id = $1`
 
+	// Add filter for past conferences
 	if !includePast {
 		query += fmt.Sprintf(" AND c.ends_at > NOW()")
 	}
 
+	// Add pagination filters
 	if lazy.AfterID != uuid.Nil {
-		query += fmt.Sprintf(" AND c.starts_at > (SELECT starts_at FROM conferences WHERE id = '%s')", lazy.AfterID)
+		query += fmt.Sprintf(" AND c.starts_at > (SELECT starts_at FROM conferences WHERE id = $%d)", argCount+1)
+		args = append(args, lazy.AfterID)
+		argCount++
 	}
 	if lazy.BeforeID != uuid.Nil {
-		query += fmt.Sprintf(" AND c.starts_at < (SELECT starts_at FROM conferences WHERE id = '%s')", lazy.BeforeID)
+		query += fmt.Sprintf(" AND c.starts_at < (SELECT starts_at FROM conferences WHERE id = $%d)", argCount+1)
+		args = append(args, lazy.BeforeID)
+		argCount++
 	}
 
+	// Add ordering and limit
 	if lazy.BeforeID != uuid.Nil {
 		query += " ORDER BY c.starts_at DESC"
 	} else {
 		query += " ORDER BY c.starts_at ASC"
 	}
-	query += fmt.Sprintf(" LIMIT '%d'", lazy.Limit+1) // Rentan
+	query += fmt.Sprintf(" LIMIT $%d", argCount+1)
+	args = append(args, lazy.Limit+1) // Request one extra record to determine if there are more results
 
-	rows, err := r.db.QueryContext(ctx, query)
+	// Execute query
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query conferences: %w", err)
+		return nil, dto.LazyLoadResponse{}, fmt.Errorf("failed to query registered conferences: %w", err)
 	}
 	defer rows.Close()
 
+	// Scan results
 	for rows.Next() {
 		var conf entity.Conference
 		var hostName string
@@ -220,23 +241,28 @@ func (r *registrationRepository) IsUserRegisteredToConference(ctx context.Contex
 	userID uuid.UUID) (bool, error) {
 
 	var exists bool
-	query := fmt.Sprintf(`SELECT EXISTS (
-		SELECT 1 FROM registrations
-		WHERE conference_id = '%s'
-		AND user_id = '%s'
-	)`, conferenceID, userID)
-
-	if err := r.db.GetContext(ctx, &exists, query); err != nil {
+	if err := r.db.GetContext(
+		ctx,
+		&exists,
+		`SELECT EXISTS (
+    			SELECT 1 FROM registrations
+    			WHERE conference_id = $1
+    			AND user_id = $2
+    		)`,
+		conferenceID, userID,
+	); err != nil {
 		return false, err
 	}
 
 	return exists, nil
 }
 
-func (r *registrationRepository) GetConflictingRegistrations(ctx context.Context, userID uuid.UUID, startsAt, endsAt time.Time) ([]entity.Conference, error) {
+func (r *registrationRepository) GetConflictingRegistrations(ctx context.Context, userID uuid.UUID, startsAt,
+	endsAt time.Time) ([]entity.Conference, error) {
+
 	var conferences []entity.Conference
 
-	query := fmt.Sprintf(`
+	query := `
         SELECT
             c.id,
             c.title,
@@ -244,30 +270,32 @@ func (r *registrationRepository) GetConflictingRegistrations(ctx context.Context
             c.ends_at
         FROM registrations r
         JOIN conferences c ON r.conference_id = c.id
-        WHERE r.user_id = '%s'
+        WHERE r.user_id = $1
             AND c.deleted_at IS NULL
             AND (
-                ('%s' BETWEEN c.starts_at AND c.ends_at)
+                ($2 BETWEEN c.starts_at AND c.ends_at)
                 OR
-                ('%s' BETWEEN c.starts_at AND c.ends_at)
+                ($3 BETWEEN c.starts_at AND c.ends_at)
                 OR
-                (c.starts_at BETWEEN '%s' AND '%s')
-            )`, userID, startsAt.Format("2006-01-02 15:04:05"), endsAt.Format("2006-01-02 15:04:05"),
-		startsAt.Format("2006-01-02 15:04:05"), endsAt.Format("2006-01-02 15:04:05"))
+                (c.starts_at BETWEEN $2 AND $3)
+            )`
 
-	if err := r.db.SelectContext(ctx, &conferences, query); err != nil {
+	if err := r.db.SelectContext(ctx, &conferences, query, userID, startsAt, endsAt); err != nil {
 		return nil, err
 	}
 
 	return conferences, nil
 }
 
-func (r *registrationRepository) CountRegistrationsByConference(ctx context.Context, conferenceID uuid.UUID) (int, error) {
+func (r *registrationRepository) CountRegistrationsByConference(ctx context.Context,
+	conferenceID uuid.UUID) (int, error) {
 	var count int
-
-	query := fmt.Sprintf(`SELECT COUNT(*) FROM registrations WHERE conference_id = '%s'`, conferenceID)
-
-	if err := r.db.GetContext(ctx, &count, query); err != nil {
+	if err := r.db.GetContext(
+		ctx,
+		&count,
+		`SELECT COUNT(*) FROM registrations WHERE conference_id = $1`,
+		conferenceID,
+	); err != nil {
 		return 0, err
 	}
 
