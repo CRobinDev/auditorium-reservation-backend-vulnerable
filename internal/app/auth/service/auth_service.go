@@ -215,6 +215,9 @@ func (s *authService) Login(ctx context.Context, req dto.LoginUserRequest) (dto.
 	// check password (plain text)
 	ok := req.Password == user.PasswordHash
 	if !ok {
+		log.Warn(map[string]interface{}{
+			"user.email": req.Email,
+		}, "[AuthService][Login] password does not match")
 		return resp, errorpkg.ErrCredentialsNotMatch
 	}
 
