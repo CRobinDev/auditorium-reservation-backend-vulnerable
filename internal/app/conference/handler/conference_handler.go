@@ -33,6 +33,7 @@ func InitConferenceHandler(
 	conferenceGroup.Use(midw.RequireAuthenticated())
 
 	conferenceGroup.Post("",
+		midw.RequireOneOfRoles(enum.RoleUser),
 		handler.createConferenceProposal(),
 	)
 	conferenceGroup.Get("/:id",
@@ -42,12 +43,15 @@ func InitConferenceHandler(
 		handler.getConferences(),
 	)
 	conferenceGroup.Patch("/:id",
+		midw.RequireOneOfRoles(enum.RoleUser),
 		handler.updateConference(),
 	)
 	conferenceGroup.Delete("/:id",
+		midw.RequireOneOfRoles(enum.RoleUser, enum.RoleEventCoordinator),
 		handler.deleteConference(),
 	)
 	conferenceGroup.Patch("/:id/status",
+		midw.RequireOneOfRoles(enum.RoleEventCoordinator),
 		handler.updateConferenceStatus(),
 	)
 }

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"github.com/google/uuid"
+	"github.com/nathakusuma/auditorium-reservation-backend/domain/enum"
 	"github.com/nathakusuma/auditorium-reservation-backend/domain/errorpkg"
 	"strings"
 	"time"
@@ -39,22 +40,23 @@ func (m *Middleware) RequireAuthenticated() fiber.Handler {
 		}
 
 		ctx.Locals("user.id", uuid.MustParse(claims.Subject))
+		ctx.Locals("user.role", claims.Role)
 
 		return ctx.Next()
 	}
 }
 
-// Deleted For BAC Vulnerable
-// func (m *Middleware) RequireOneOfRoles(roles ...enum.UserRole) fiber.Handler {
-// 	return func(ctx *fiber.Ctx) error {
-// 		userRole := ctx.Locals("user.role").(enum.UserRole)
+// RequireOneOfRoles dependency: RequireAuthenticated
+func (m *Middleware) RequireOneOfRoles(roles ...enum.UserRole) fiber.Handler {
+	return func(ctx *fiber.Ctx) error {
+		userRole := ctx.Locals("user.role").(enum.UserRole)
 
-// 		for _, role := range roles {
-// 			if userRole == role {
-// 				return ctx.Next()
-// 			}
-// 		}
+		for _, role := range roles {
+			if userRole == role {
+				return ctx.Next()
+			}
+		}
 
-// 		return errorpkg.ErrForbiddenRole
-// 	}
-// }
+		return errorpkg.ErrForbiddenRole
+	}
+}
