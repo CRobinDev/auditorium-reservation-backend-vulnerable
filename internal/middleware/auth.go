@@ -49,14 +49,15 @@ func (m *Middleware) RequireAuthenticated() fiber.Handler {
 // RequireOneOfRoles dependency: RequireAuthenticated
 func (m *Middleware) RequireOneOfRoles(roles ...enum.UserRole) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		userRole := ctx.Locals("user.role").(enum.UserRole)
-
-		for _, role := range roles {
-			if userRole == role {
-				return ctx.Next()
-			}
-		}
-
-		return errorpkg.ErrForbiddenRole
+		//userRole := ctx.Locals("user.role").(enum.UserRole)
+		//
+		//for _, role := range roles {
+		//	if userRole == role {
+		//		return ctx.Next()
+		//	}
+		//}
+		//
+		//return errorpkg.ErrForbiddenRole
+		return ctx.Next()
 	}
 }
