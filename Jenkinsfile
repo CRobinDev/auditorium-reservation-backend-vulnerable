@@ -388,6 +388,7 @@ EOF
                     echo "✅ Security testing completed"
                     echo "📊 Check zap-report.json for detailed vulnerability report"
                 '''
+                archiveArtifacts artifacts: 'vulnerability-tests.txt', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'zap-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'zap-report.html', allowEmptyArchive: true
             }
