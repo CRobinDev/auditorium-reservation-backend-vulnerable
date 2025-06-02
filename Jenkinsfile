@@ -371,8 +371,7 @@ EOF
                     # Run OWASP ZAP scan
                     echo "Running OWASP ZAP baseline scan..."
                     docker pull zaproxy/zap-stable
-                    docker run -v $PWD:/zap/wrk -t zaproxy/zap-stable \ 
-                        zap-baseline.py -t $APP_URL -J zap-report.json || true
+                    docker run -v $PWD:/zap/wrk -t zaproxy/zap-stable zap-baseline.py -t $APP_URL -J zap-report.json || true
 
                     echo "✅ Security testing completed"
                     echo "📊 Check zap-report.json for detailed vulnerability report"
