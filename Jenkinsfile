@@ -377,20 +377,13 @@ EOF
                          -s >> vulnerability-tests.txt || true
                     
                     echo "✅ Manual endpoint testing completed. Check vulnerability-tests.txt for results." >> vulnerability-tests.txt
-                    # Create endpoints url
-                    echo "$APP_URL/" >> url.txt
-                    echo "$APP_URL/api/v1/auth/login" >> url.txt
-                    echo "$APP_URL/api/v1/users/1" >> url.txt
-                    echo "$APP_URL/api/v1/admin/users" >> url.txt
-                    echo "$APP_URL/.env" >> url.txt
-                    
                     # Run OWASP ZAP scan
                      echo "📁 Fixing workspace permission"
-                    chmod -R 777 $PWD
+                    chmod -R 755 $PWD
                     
                     echo "Running OWASP ZAP baseline scan..."
                     docker pull zaproxy/zap-stable
-                    docker run -v $PWD:/zap/wrk -t zaproxy/zap-stable zap-baseline.py -t $APP_URL -J zap-report.json -r zap-report.html -z "-cmd runurls /zap/wrk/url.txt" || true
+                    docker run -v $PWD:/zap/wrk -t zaproxy/zap-stable zap-baseline.py -t $APP_URL -J zap-report.json -r zap-report.html || true
 
                     echo "✅ Security testing completed"
                     echo "📊 Check zap-report.json for detailed vulnerability report"
