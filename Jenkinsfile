@@ -369,6 +369,9 @@ EOF
                     curl "$APP_URL/config" -w "\\nConfig endpoint - Status: %{http_code}\\n" || true
 
                     # Run OWASP ZAP scan
+                     echo "📁 Fixing workspace permission"
+                    chmod -R 777 $PWD
+                    
                     echo "Running OWASP ZAP baseline scan..."
                     docker pull zaproxy/zap-stable
                     docker run -v $PWD:/zap/wrk -t zaproxy/zap-stable zap-baseline.py -t $APP_URL -J zap-report.json || true
